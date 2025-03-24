@@ -261,4 +261,11 @@ namespace SSD_Components
 		}
 		return false;
 	}
+
+    sim_time_type Flash_Block_Manager::Get_ISPP_latency_for_block(const NVM::FlashMemory::Physical_Page_Address& block_address)
+    {
+        PlaneBookKeepingType *plane_record = &plane_manager[block_address.ChannelID][block_address.ChipID][block_address.DieID][block_address.PlaneID];
+        Block_Pool_Slot_Type *block = &plane_record->Blocks[block_address.BlockID];
+        return block->Ispp_latency;
+    }
 }
