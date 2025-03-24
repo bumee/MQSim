@@ -94,6 +94,12 @@ namespace SSD_Components
 		Current_page_write_index = 0;
 		Invalid_page_count = 0;
 		Erase_count++;
+
+		Ispp_step = 0;
+		Ispp_latency = 0;
+		Ispe_step = 0;
+		Ispe_latency = 0;
+
 		for (unsigned int i = 0; i < Block_Pool_Slot_Type::Page_vector_size; i++) {
 			Invalid_page_bitmap[i] = All_VALID_PAGE;
 		}
@@ -202,7 +208,21 @@ namespace SSD_Components
 	{
 		PlaneBookKeepingType *plane_record = &plane_manager[page_address.ChannelID][page_address.ChipID][page_address.DieID][page_address.PlaneID];
 		plane_record->Blocks[page_address.BlockID].Ongoing_user_program_count++;
+
+		const sim_time_type base_latency = 50;       // latency (ns)
+        const sim_time_type step_increment = 10;       // ISPP (ns)
+        Block_Pool_Slot_Type *block = &plane_record->Blocks[page_address.BlockID];
+        block->Ispp_latency = base_latency + block->ISPP_step * step_increment;
+
+        block->Ispp_step++;
 	}
+
+	sim_time_type Flash_Block_Manager::Get_ISPP_latency_for_block(const NVM::FlashMemory::Physical_Page_Address& block_address)
+    {
+        PlaneBookKeepingType *plane_record = &plane_manager[block_address.ChannelID][block_address.ChipID][block_address.DieID][block_address.PlaneID];
+        Block_Pool_Slot_Type *block = &plane_record->Blocks[block_address.BlockID];
+        return block->Ispp_latency;
+    }
 	
 	void Flash_Block_Manager_Base::Read_transaction_issued(const NVM::FlashMemory::Physical_Page_Address& page_address)
 	{
