@@ -44,11 +44,6 @@ namespace SSD_Components
 		int Ongoing_user_read_count;
 		int Ongoing_user_program_count;
 		void Erase();
-
-		unsigned int Ispp_step;
-		sim_time_type Ispp_latency;
-		unsigned int Ispe_step;
-		sim_time_type Ispe_latency;
 	};
 
 	class PlaneBookKeepingType
@@ -114,7 +109,6 @@ namespace SSD_Components
 		unsigned int pages_no_per_block;
 		void program_transaction_issued(const NVM::FlashMemory::Physical_Page_Address& page_address);//Updates the block bookkeeping record
 
-		virtual sim_time_type Get_ISPP_latency_for_block(const NVM::FlashMemory::Physical_Page_Address& block_address) = 0; 
 	};
 }
 
