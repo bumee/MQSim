@@ -10,6 +10,7 @@
 #include "../utils/Helper_Functions.h"
 #include "FTL.h"
 #include "Stats.h"
+#include <fstream>
 
 namespace SSD_Components
 {
@@ -28,7 +29,8 @@ namespace SSD_Components
 	}
 
 	FTL::~FTL()
-	{
+	{	
+		Stats::Print_stats(channel_no, chip_no_per_channel, die_no_per_chip, plane_no_per_die, block_no_per_plane, page_no_per_block, max_allowed_block_erase_count);
 		Stats::Clear_stats(channel_no, chip_no_per_channel, die_no_per_chip, plane_no_per_die, block_no_per_plane, page_no_per_block, max_allowed_block_erase_count);
 	}
 

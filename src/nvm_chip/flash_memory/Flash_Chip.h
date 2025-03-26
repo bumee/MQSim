@@ -116,11 +116,11 @@ namespace NVM
 					case CMD_PROGRAM_PAGE_MULTIPLANE:
 					case CMD_PROGRAM_PAGE_COPYBACK:
 					case CMD_PROGRAM_PAGE_COPYBACK_MULTIPLANE:
-						 return _programLatency[latencyType] + _RBSignalDelayWrite + Get_ISPP_latency_for_block(pageAddress) + Get_ISPE_latency_for_block(pageAddress);
+						 return _programLatency[latencyType] + _RBSignalDelayWrite + Get_ISPP_latency_for_block(pageAddress);
 						
 					case CMD_ERASE_BLOCK:
 					case CMD_ERASE_BLOCK_MULTIPLANE:
-						return _eraseLatency + _RBSignalDelayErase;
+						return _eraseLatency + _RBSignalDelayErase + Get_ISPE_latency_for_block(pageAddress);
 						
 					default:
 						throw std::invalid_argument("Unsupported command for flash chip.");

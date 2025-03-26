@@ -86,6 +86,25 @@ namespace SSD_Components
 		}
 	}
 
+	void Stats::Print_stats(unsigned int channel_no, unsigned int chip_no_per_channel, unsigned int die_no_per_chip, unsigned int plane_no_per_die,
+		unsigned int block_no_per_plane, unsigned int page_no_per_block, unsigned int max_allowed_block_erase_count)
+	{	
+		std::cout << "Block Erase Histogram:" << std::endl;
+    	for (unsigned int channel_cntr = 0; channel_cntr < channel_no; channel_cntr++) {
+        	for (unsigned int chip_cntr = 0; chip_cntr < chip_no_per_channel; chip_cntr++) {
+            	for (unsigned int die_cntr = 0; die_cntr < die_no_per_chip; die_cntr++) {
+                	for (unsigned int plane_cntr = 0; plane_cntr < plane_no_per_die; plane_cntr++) {
+						std::cout << "Channel: " << channel_cntr << ", Chip: " << chip_cntr << ", Die: " << die_cntr << ", Plane: " << plane_cntr << std::endl;
+                    	for (unsigned int i = 0; i < max_allowed_block_erase_count; ++i) {
+							std::cout << "Erase Count " << i << ": " << Block_erase_histogram[channel_cntr][chip_cntr][die_cntr][plane_cntr][i] << " Blocks" << std::endl;
+                    	}	
+                	}
+            	}
+        	}
+    	}
+	}
+
+
 	void Stats::Clear_stats(unsigned int channel_no, unsigned int chip_no_per_channel, unsigned int die_no_per_chip, unsigned int plane_no_per_die,
 		unsigned int block_no_per_plane, unsigned int page_no_per_block, unsigned int max_allowed_block_erase_count)
 	{
