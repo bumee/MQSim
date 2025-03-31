@@ -302,8 +302,11 @@ int main(int argc, char* argv[])
 		PRINT_MESSAGE("Total simulation time: " << duration / 3600 << ":" << (duration % 3600) / 60 << ":" << ((duration % 3600) % 60))
 		PRINT_MESSAGE("");
 
+
 		PRINT_MESSAGE("Writing results to output file .......");
 		collect_results(ssd, host, (workload_defs_file_path.substr(0, workload_defs_file_path.find_last_of(".")) + "_scenario_" + std::to_string(cntr) + ".xml").c_str());
+
+		ssd.Firmware->Show_erase_histogram();
 	}
     cout << "Simulation complete; Press any key to exit." << endl;
 

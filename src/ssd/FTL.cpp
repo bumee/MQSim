@@ -30,8 +30,12 @@ namespace SSD_Components
 
 	FTL::~FTL()
 	{	
-		Stats::Print_stats(channel_no, chip_no_per_channel, die_no_per_chip, plane_no_per_die, block_no_per_plane, page_no_per_block, max_allowed_block_erase_count);
 		Stats::Clear_stats(channel_no, chip_no_per_channel, die_no_per_chip, plane_no_per_die, block_no_per_plane, page_no_per_block, max_allowed_block_erase_count);
+	}
+	
+	void FTL::Show_erase_histogram()
+	{
+		Stats::Print_stats(channel_no, chip_no_per_channel, die_no_per_chip, plane_no_per_die, block_no_per_plane, page_no_per_block, max_allowed_block_erase_count);
 	}
 
 	void FTL::Validate_simulation_config()
