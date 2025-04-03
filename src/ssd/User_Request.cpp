@@ -9,4 +9,6 @@ namespace SSD_Components
 		ID = "" + std::to_string(lastId++);
 		ToBeIgnored = false;
 	}
+
+
 }

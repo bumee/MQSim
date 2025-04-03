@@ -64,9 +64,9 @@ namespace SSD_Components
 					delete dram_execution_queue[0].front();
 					dram_execution_queue[0].pop();
 				}
-				for (auto &req : waiting_user_requests_queue_for_dram_free_slot[0]) {
-					delete req;
-				}
+				//for (auto &req : waiting_user_requests_queue_for_dram_free_slot[0]) {
+					//delete req;
+				//}
 				break;
 			}
 			case SSD_Components::Cache_Sharing_Mode::EQUAL_PARTITIONING:
@@ -76,18 +76,18 @@ namespace SSD_Components
 						delete dram_execution_queue[i].front();
 						dram_execution_queue[i].pop();
 					}
-					for (auto &req : waiting_user_requests_queue_for_dram_free_slot[i]) {
-						delete req;
-					}
+					//for (auto &req : waiting_user_requests_queue_for_dram_free_slot[i]) {
+						//delete req;
+					//}
 				}
 				break;
 			default:
 				break;
 		}
 		
-		delete per_stream_cache;
+		delete[] per_stream_cache;
 		delete[] dram_execution_queue;
-		delete[] waiting_user_requests_queue_for_dram_free_slot;
+		//delete[] waiting_user_requests_queue_for_dram_free_slot;
 		delete[] bloom_filter;
 	}
 
@@ -328,7 +328,7 @@ namespace SSD_Components
 			read_transfer_info->next_event_type = Data_Cache_Simulation_Event_Type::MEMORY_READ_FOR_CACHE_EVICTION_FINISHED;
 			read_transfer_info->Stream_id = user_request->Stream_id;
 			service_dram_access_request(read_transfer_info);
-		}
+		} 
 
 		//Issue memory write to write data to DRAM
 		if (dram_write_size_in_sectors) {

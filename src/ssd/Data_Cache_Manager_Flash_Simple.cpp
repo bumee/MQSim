@@ -181,7 +181,7 @@ namespace SSD_Components
 			read_transfer_info->next_event_type = Data_Cache_Simulation_Event_Type::MEMORY_READ_FOR_CACHE_EVICTION_FINISHED;
 			read_transfer_info->Stream_id = user_request->Stream_id;
 			service_dram_access_request(read_transfer_info);
-		}
+		} 
 
 		//Issue memory write to write data to DRAM
 		if (dram_write_size_in_sectors) {

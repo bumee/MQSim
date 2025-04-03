@@ -10,8 +10,8 @@ namespace NVM
 			Pages = new Page[PagesNoPerBlock];
 			ispp_latency = 1000000; //1ms
 			ispe_latency = 1000000; //1ms
-			isispp = true;
-			isispe = true;
+			isispp = false;
+			isispe = false;
 		}
 
 		Block::~Block()
