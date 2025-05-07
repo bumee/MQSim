@@ -9,6 +9,7 @@
 #include "../utils/DistributionTypes.h"
 #include "../utils/Helper_Functions.h"
 #include "FTL.h"
+#include "Flash_Block_Manager.h"
 #include "Stats.h"
 #include <fstream>
 
@@ -52,7 +53,8 @@ namespace SSD_Components
 	}
 	void FTL::Perform_precondition(std::vector<Utils::Workload_Statistics*> workload_stats)
 	{
-		Address_Mapping_Unit->Store_mapping_table_on_flash_at_start();
+
+        	Address_Mapping_Unit->Store_mapping_table_on_flash_at_start();
 
 		double overall_rate = 0;
 		for (auto const &stat : workload_stats)
@@ -85,7 +87,7 @@ namespace SSD_Components
 
 		for (auto &stat : workload_stats)
 		{
-			LPA_type no_of_logical_pages_in_steadystate = (LPA_type)(stat->Initial_occupancy_ratio * Address_Mapping_Unit->Get_logical_pages_count(stat->Stream_id));
+			LPA_type no_of_logical_pages_in_steadystate = (LPA_type)(stat->Initial_occupancy_ratio * stat->Total_accessed_lbas);
 
 			//Step 1: generate LPAs that are accessed in the steady-state
 			Utils::Address_Distribution_Type decision_dist_type = stat->Address_distribution_type;
@@ -358,7 +360,7 @@ namespace SSD_Components
 
 				//Step 1-3: Determine the address distribution type of the input trace
 				stat->Address_distribution_type = Utils::Address_Distribution_Type::RANDOM_HOTCOLD;//Initially assume that the trace has hot/cold access pattern
-				
+
 				//First check if there are enough number of write requests in the workload to make a statistically correct decision, if not, MQSim assumes the workload has a uniform access pattern
 				if (stat->Write_address_access_pattern.size() > STATISTICALLY_SUFFICIENT_WRITES_FOR_PRECONDITIONING) {
 					int hot_region_write_count = 0;
@@ -622,6 +624,31 @@ namespace SSD_Components
 			}
 			default:
 				PRINT_ERROR("Unhandled address distribution type in FTL's preconditioning function.")
+			}
+			auto fbmBase = static_cast<Flash_Block_Manager_Base*>(this->BlockManager);
+			for (unsigned int ch = 0; ch < channel_no; ++ch) {
+    				for (unsigned int chip = 0; chip < chip_no_per_channel; ++chip) {
+        				for (unsigned int die = 0; die < die_no_per_chip; ++die) {
+            					for (unsigned int pl = 0; pl < plane_no_per_die; ++pl) {
+                					NVM::FlashMemory::Physical_Page_Address addr;
+                					addr.ChannelID = ch;
+                					addr.ChipID    = chip;
+                					addr.DieID     = die;
+                					addr.PlaneID   = pl;
+                					addr.PageID    = 0; 
+
+                					PlaneBookKeepingType* bk =
+                  					fbmBase->Get_plane_bookkeeping_entry(addr);
+
+                					std::cout << "[DEBUG][Precond] Plane C" << ch
+                          				<< " Chp" << chip
+                          				<< " D"  << die
+                          				<< " Pl" << pl
+                          				<< " free_pages=" << bk->Free_pages_count
+                          				<< "\n";
+            					}
+        				}
+    				}
 			}
 
 			//Step 3: Distribute LPAs over the entire flash space

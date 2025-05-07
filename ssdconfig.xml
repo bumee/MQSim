@@ -16,7 +16,7 @@
 		<Queue_Fetch_Size>512</Queue_Fetch_Size>
 		<Caching_Mechanism>ADVANCED</Caching_Mechanism>
 		<Data_Cache_Sharing_Mode>SHARED</Data_Cache_Sharing_Mode>
-		<Data_Cache_Capacity>268435456</Data_Cache_Capacity>
+		<Data_Cache_Capacity>1073741824</Data_Cache_Capacity>
 		<Data_Cache_DRAM_Row_Size>8192</Data_Cache_DRAM_Row_Size>
 		<Data_Cache_DRAM_Data_Rate>100</Data_Cache_DRAM_Data_Rate>
 		<Data_Cache_DRAM_Data_Busrt_Size>1</Data_Cache_DRAM_Data_Busrt_Size>
@@ -24,12 +24,12 @@
 		<Data_Cache_DRAM_tCL>13</Data_Cache_DRAM_tCL>
 		<Data_Cache_DRAM_tRP>13</Data_Cache_DRAM_tRP>
 		<Address_Mapping>PAGE_LEVEL</Address_Mapping>
-		<Ideal_Mapping_Table>false</Ideal_Mapping_Table>
+		<Ideal_Mapping_Table>true</Ideal_Mapping_Table>
 		<CMT_Capacity>1048576</CMT_Capacity>
 		<CMT_Sharing_Mode>SHARED</CMT_Sharing_Mode>
 		<Plane_Allocation_Scheme>CWDP</Plane_Allocation_Scheme>
 		<Transaction_Scheduling_Policy>PRIORITY_OUT_OF_ORDER</Transaction_Scheduling_Policy>
-		<Overprovisioning_Ratio>0.07</Overprovisioning_Ratio>
+		<Overprovisioning_Ratio>0.05</Overprovisioning_Ratio>
 		<GC_Exec_Threshold>0.05000</GC_Exec_Threshold>
 		<GC_Block_Selection_Policy>RGA</GC_Block_Selection_Policy>
 		<Use_Copyback_for_GC>false</Use_Copyback_for_GC>
@@ -47,7 +47,7 @@
 		<Chip_No_Per_Channel>4</Chip_No_Per_Channel>
 		<Flash_Comm_Protocol>NVDDR2</Flash_Comm_Protocol>
 		<Flash_Parameter_Set>
-			<Flash_Technology>MLC</Flash_Technology>
+			<Flash_Technology>TLC</Flash_Technology>
 			<CMD_Suspension_Support>ERASE</CMD_Suspension_Support>
 			<Page_Read_Latency_LSB>75000</Page_Read_Latency_LSB>
 			<Page_Read_Latency_CSB>75000</Page_Read_Latency_CSB>
@@ -62,7 +62,7 @@
 			<Die_No_Per_Chip>2</Die_No_Per_Chip>
 			<Plane_No_Per_Die>2</Plane_No_Per_Die>
 			<Block_No_Per_Plane>256</Block_No_Per_Plane>
-			<Page_No_Per_Block>256</Page_No_Per_Block>
+			<Page_No_Per_Block>2048</Page_No_Per_Block>
 			<Page_Capacity>8192</Page_Capacity>
 			<Page_Metadat_Capacity>448</Page_Metadat_Capacity>
 		</Flash_Parameter_Set>

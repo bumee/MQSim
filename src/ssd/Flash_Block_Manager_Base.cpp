@@ -94,7 +94,6 @@ namespace SSD_Components
 		Current_page_write_index = 0;
 		Invalid_page_count = 0;
 		Erase_count++;
-
 		for (unsigned int i = 0; i < Block_Pool_Slot_Type::Page_vector_size; i++) {
 			Invalid_page_bitmap[i] = All_VALID_PAGE;
 		}
@@ -120,7 +119,9 @@ namespace SSD_Components
 	
 	void PlaneBookKeepingType::Check_bookkeeping_correctness(const NVM::FlashMemory::Physical_Page_Address& plane_address)
 	{
-		if (Total_pages_count != Free_pages_count + Valid_pages_count + Invalid_pages_count) {
+		if (Total_pages_count !=  Free_pages_count + Valid_pages_count + Invalid_pages_count) {
+			std::cout << "Free pages: " << Free_pages_count << " Valid pages: " << Valid_pages_count <<" Invalid_pages: " << Invalid_pages_count << std::endl;
+			std::cout << "Total pages: " << Total_pages_count << std::endl;
 			PRINT_ERROR("Inconsistent status in the plane bookkeeping record!")
 		}
 		if (Free_pages_count == 0) {
@@ -204,7 +205,6 @@ namespace SSD_Components
 		PlaneBookKeepingType *plane_record = &plane_manager[page_address.ChannelID][page_address.ChipID][page_address.DieID][page_address.PlaneID];
 		plane_record->Blocks[page_address.BlockID].Ongoing_user_program_count++;
 	}
-
 	
 	void Flash_Block_Manager_Base::Read_transaction_issued(const NVM::FlashMemory::Physical_Page_Address& page_address)
 	{
@@ -238,10 +238,9 @@ namespace SSD_Components
 	
 	bool Flash_Block_Manager_Base::Is_page_valid(Block_Pool_Slot_Type* block, flash_page_ID_type page_id)
 	{
-		if ((block->Invalid_page_bitmap[page_id / 64] & (((uint64_t)1) << page_id)) == 0) {
+		if ((block->Invalid_page_bitmap[page_id / 64] & (((uint64_t)1) << (page_id % 64))) == 0) {
 			return true;
 		}
 		return false;
 	}
-
 }
