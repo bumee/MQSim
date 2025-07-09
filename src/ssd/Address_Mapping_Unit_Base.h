@@ -17,6 +17,9 @@ namespace SSD_Components
 
 	typedef uint32_t MVPN_type;
 	typedef uint32_t MPPN_type;
+	//Addition to Kibum Lee's Definition (BlockHotness, Pagehotness definition)
+        enum class BlockHotness {HOT, WARM, COLD};
+        enum class PageHotness {HOT, COLD};
 
 	enum class Flash_Address_Mapping_Type {PAGE_LEVEL, HYBRID};
 	enum class Flash_Plane_Allocation_Scheme_Type
@@ -42,6 +45,11 @@ namespace SSD_Components
 			double Overprovisioning_ratio, CMT_Sharing_Mode sharing_mode = CMT_Sharing_Mode::SHARED, bool fold_large_addresses = true);
 		virtual ~Address_Mapping_Unit_Base();
 
+		// declare access counter map for lpa access freq
+                std::unordered_map<LPA_type, uint8_t> lpa_access_counter;
+		virtual void increment_access_counter(LPA_type lpa) = 0;
+                virtual SSD_Components::PageHotness DeterminePageHotness(LPA_type lpa) = 0;
+
 		//Functions used for preconditioning
 		virtual void Allocate_address_for_preconditioning(const stream_id_type stream_id, std::map<LPA_type, page_status_type>& lpa_list, std::vector<double>& steady_state_distribution) = 0;
 		virtual int Bring_to_CMT_for_preconditioning(stream_id_type stream_id, LPA_type lpa) = 0;//Used for warming up the cached mapping table during preconditioning
@@ -64,6 +72,8 @@ namespace SSD_Components
 		virtual NVM::FlashMemory::Physical_Page_Address Convert_ppa_to_address(const PPA_type ppa) = 0;
 		virtual void Convert_ppa_to_address(const PPA_type ppa, NVM::FlashMemory::Physical_Page_Address& address) = 0;
 		virtual PPA_type Convert_address_to_ppa(const NVM::FlashMemory::Physical_Page_Address& pageAddress) = 0;
+		
+		virtual SSD_Components::BlockHotness PickTargetBlockHotness(stream_id_type stream_id, LPA_type lpa, const NVM::FlashMemory::Physical_Page_Address& new_pa) = 0;
 
 		/*********************************************************************************************************************
 		 These are system state consistency control functions that are used for garbage collection and wear-leveling execution.

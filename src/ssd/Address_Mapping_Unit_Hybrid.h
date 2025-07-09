@@ -18,6 +18,11 @@ namespace SSD_Components
 		void Validate_simulation_config();
 		void Execute_simulator_event(MQSimEngine::Sim_Event*);
 
+		// just dummy implementation for parent class
+		void increment_access_counter(LPA_type lpa);
+		SSD_Components::PageHotness DeterminePageHotness(LPA_type lpa);
+		SSD_Components::BlockHotness PickTargetBlockHotness(stream_id_type stream_id, LPA_type lpa, const NVM::FlashMemory::Physical_Page_Address& pa);
+
 		void Allocate_address_for_preconditioning(const stream_id_type stream_id, std::map<LPA_type, page_status_type>& lpa_list, std::vector<double>& steady_state_distribution);
 		int Bring_to_CMT_for_preconditioning(stream_id_type stream_id, LPA_type lpa);
 		unsigned int Get_cmt_capacity();

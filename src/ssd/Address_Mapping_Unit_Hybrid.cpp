@@ -36,6 +36,19 @@ namespace SSD_Components
 	{
 		return 0;
 	}
+	void Address_Mapping_Unit_Hybrid::increment_access_counter(LPA_type lpa) {
+		// hybrid mapping doesn't use this function
+	}
+	
+	SSD_Components::PageHotness Address_Mapping_Unit_Hybrid::DeterminePageHotness(LPA_type lpa) {
+		// hybrid mapping always returns COLD
+		return PageHotness::COLD;
+	}
+	
+	SSD_Components::BlockHotness Address_Mapping_Unit_Hybrid::PickTargetBlockHotness(stream_id_type stream_id, LPA_type lpa, const NVM::FlashMemory::Physical_Page_Address& pa) {
+		// hybrid mapping always returns COLD
+		return BlockHotness::COLD;
+	}
 
 	void Address_Mapping_Unit_Hybrid::Convert_ppa_to_address(const PPA_type ppa, NVM::FlashMemory::Physical_Page_Address& address) {}
 	PPA_type Address_Mapping_Unit_Hybrid::Convert_address_to_ppa(const NVM::FlashMemory::Physical_Page_Address& pageAddress) { return 0; }

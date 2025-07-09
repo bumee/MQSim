@@ -12,6 +12,13 @@ namespace SSD_Components
 		block_no_per_plane(block_no_per_plane), pages_no_per_block(page_no_per_block)
 	{
 		plane_manager = new PlaneBookKeepingType***[channel_count];
+		float hot_ratio  = 0.10f;   // 예: 10%를 hot
+		float warm_ratio = 0.20f;   // 예: 20%를 warm
+
+		unsigned int blocks_per_plane = block_no_per_plane;
+
+		unsigned int hot_count  = static_cast<unsigned int>(blocks_per_plane * hot_ratio);
+		unsigned int warm_count = static_cast<unsigned int>(blocks_per_plane * warm_ratio);
 		for (unsigned int channelID = 0; channelID < channel_count; channelID++) {
 			plane_manager[channelID] = new PlaneBookKeepingType**[chip_no_per_channel];
 			for (unsigned int chipID = 0; chipID < chip_no_per_channel; chipID++) {
@@ -45,15 +52,37 @@ namespace SSD_Components
 							for (unsigned int i = 0; i < Block_Pool_Slot_Type::Page_vector_size; i++) {
 								plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].Invalid_page_bitmap[i] = All_VALID_PAGE;
 							}
-							plane_manager[channelID][chipID][dieID][planeID].Add_to_free_block_pool(&plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID], false);
+							BlockHotness h;
+							if (blockID < hot_count) {
+								h = BlockHotness::HOT;
+								plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].Hotness = h;
+							}
+							else if (blockID < hot_count + warm_count) {
+								h = BlockHotness::WARM;
+								plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].Hotness = h;
+							}
+							else {
+								h = BlockHotness::COLD;
+								plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].Hotness = h;
+							}
+							plane_manager[channelID][chipID][dieID][planeID].Add_to_free_block_pool(&plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID], false, h);
 						}
-						plane_manager[channelID][chipID][dieID][planeID].Data_wf = new Block_Pool_Slot_Type*[total_concurrent_streams_no];
+						plane_manager[channelID][chipID][dieID][planeID].Data_hot_wf = new Block_Pool_Slot_Type*[total_concurrent_streams_no];
+						plane_manager[channelID][chipID][dieID][planeID].Data_warm_wf = new Block_Pool_Slot_Type*[total_concurrent_streams_no];
+						plane_manager[channelID][chipID][dieID][planeID].Data_cold_wf = new Block_Pool_Slot_Type*[total_concurrent_streams_no];
 						plane_manager[channelID][chipID][dieID][planeID].Translation_wf = new Block_Pool_Slot_Type*[total_concurrent_streams_no];
-						plane_manager[channelID][chipID][dieID][planeID].GC_wf = new Block_Pool_Slot_Type*[total_concurrent_streams_no];
+						plane_manager[channelID][chipID][dieID][planeID].GC_hot_wf = new Block_Pool_Slot_Type*[total_concurrent_streams_no];
+						plane_manager[channelID][chipID][dieID][planeID].GC_warm_wf = new Block_Pool_Slot_Type*[total_concurrent_streams_no];
+						plane_manager[channelID][chipID][dieID][planeID].GC_cold_wf = new Block_Pool_Slot_Type*[total_concurrent_streams_no];
 						for (unsigned int stream_cntr = 0; stream_cntr < total_concurrent_streams_no; stream_cntr++) {
-							plane_manager[channelID][chipID][dieID][planeID].Data_wf[stream_cntr] = plane_manager[channelID][chipID][dieID][planeID].Get_a_free_block(stream_cntr, false);
-							plane_manager[channelID][chipID][dieID][planeID].Translation_wf[stream_cntr] = plane_manager[channelID][chipID][dieID][planeID].Get_a_free_block(stream_cntr, true);
-							plane_manager[channelID][chipID][dieID][planeID].GC_wf[stream_cntr] = plane_manager[channelID][chipID][dieID][planeID].Get_a_free_block(stream_cntr, false);
+							plane_manager[channelID][chipID][dieID][planeID].Data_hot_wf[stream_cntr] = plane_manager[channelID][chipID][dieID][planeID].Get_a_free_block(stream_cntr, false, BlockHotness::HOT);
+							plane_manager[channelID][chipID][dieID][planeID].Translation_wf[stream_cntr] = plane_manager[channelID][chipID][dieID][planeID].Get_a_free_block(stream_cntr, true, BlockHotness::WARM);
+							plane_manager[channelID][chipID][dieID][planeID].GC_hot_wf[stream_cntr] = plane_manager[channelID][chipID][dieID][planeID].Get_a_free_block(stream_cntr, false, BlockHotness::HOT);
+							plane_manager[channelID][chipID][dieID][planeID].Data_warm_wf[stream_cntr] = plane_manager[channelID][chipID][dieID][planeID].Get_a_free_block(stream_cntr, false, BlockHotness::WARM);
+							plane_manager[channelID][chipID][dieID][planeID].Data_cold_wf[stream_cntr] = plane_manager[channelID][chipID][dieID][planeID].Get_a_free_block(stream_cntr, false, BlockHotness::COLD);
+							plane_manager[channelID][chipID][dieID][planeID].GC_warm_wf[stream_cntr] = plane_manager[channelID][chipID][dieID][planeID].Get_a_free_block(stream_cntr, false, BlockHotness::WARM);
+							plane_manager[channelID][chipID][dieID][planeID].GC_cold_wf[stream_cntr] = plane_manager[channelID][chipID][dieID][planeID].Get_a_free_block(stream_cntr, false, BlockHotness::COLD);
+
 						}
 					}
 				}
@@ -71,8 +100,12 @@ namespace SSD_Components
 							delete[] plane_manager[channel_id][chip_id][die_id][plane_id].Blocks[blockID].Invalid_page_bitmap;
 						}
 						delete[] plane_manager[channel_id][chip_id][die_id][plane_id].Blocks;
-						delete[] plane_manager[channel_id][chip_id][die_id][plane_id].GC_wf;
-						delete[] plane_manager[channel_id][chip_id][die_id][plane_id].Data_wf;
+						delete[] plane_manager[channel_id][chip_id][die_id][plane_id].GC_hot_wf;
+						delete[] plane_manager[channel_id][chip_id][die_id][plane_id].GC_warm_wf;
+						delete[] plane_manager[channel_id][chip_id][die_id][plane_id].GC_cold_wf;
+						delete[] plane_manager[channel_id][chip_id][die_id][plane_id].Data_hot_wf;
+						delete[] plane_manager[channel_id][chip_id][die_id][plane_id].Data_warm_wf;
+						delete[] plane_manager[channel_id][chip_id][die_id][plane_id].Data_cold_wf;
 						delete[] plane_manager[channel_id][chip_id][die_id][plane_id].Translation_wf;
 					}
 					delete[] plane_manager[channel_id][chip_id][die_id];
@@ -116,6 +149,36 @@ namespace SSD_Components
 
 		return new_block;
 	}
+
+	// Addition to Kibum Lee's Definition (custom get a free block)
+	Block_Pool_Slot_Type* PlaneBookKeepingType::Get_a_free_block(stream_id_type stream_id, bool for_mapping_data, SSD_Components::BlockHotness blockhotness)
+	{
+
+		// 3-2) select proper block pool
+		auto& pool = (blockhotness == BlockHotness::HOT   ? Free_hot_block_pool
+				: blockhotness == BlockHotness::WARM ? Free_warm_block_pool
+												: Free_cold_block_pool);
+
+		// 3-3) pool empty -> currently, fail (it could be fallback to other pool)
+		if (pool.empty()) {
+			PRINT_ERROR("Requesting a free block from an empty " 
+				+ std::string(blockhotness==BlockHotness::HOT? "HOT":"WARM/COLD") 
+				+ " pool!");
+			return nullptr;
+		}		
+
+		// 3-4) select lowest key and value from multimap.begin()
+		auto it = pool.begin();
+		Block_Pool_Slot_Type* new_block = it->second;
+		pool.erase(it);
+
+		// 3-5) attribute setting
+		new_block->Stream_id = stream_id;
+		new_block->Holds_mapping_data = for_mapping_data;
+		Block_usage_history.push(new_block->BlockID);
+
+		return new_block;
+	}
 	
 	void PlaneBookKeepingType::Check_bookkeeping_correctness(const NVM::FlashMemory::Physical_Page_Address& plane_address)
 	{
@@ -131,7 +194,7 @@ namespace SSD_Components
 
 	unsigned int PlaneBookKeepingType::Get_free_block_pool_size()
 	{
-		return (unsigned int)Free_block_pool.size();
+		return (unsigned int)(Free_cold_block_pool.size() + Free_warm_block_pool.size() + Free_hot_block_pool.size());
 	}
 
 	void PlaneBookKeepingType::Add_to_free_block_pool(Block_Pool_Slot_Type* block, bool consider_dynamic_wl)
@@ -143,6 +206,25 @@ namespace SSD_Components
 			std::pair<unsigned int, Block_Pool_Slot_Type*> entry(0, block);
 			Free_block_pool.insert(entry);
 		}
+	}
+
+	void PlaneBookKeepingType::Add_to_free_block_pool(Block_Pool_Slot_Type* block, bool consider_dynamic_wl, BlockHotness hotness)
+	{
+    		// determine key
+    		unsigned int key = consider_dynamic_wl ? block->Erase_count : 0;
+
+    		// multimap for hotness
+    		switch (hotness) {
+        	case BlockHotness::HOT:
+            		Free_hot_block_pool.emplace(key, block);
+            		break;
+        	case BlockHotness::WARM:
+            		Free_warm_block_pool.emplace(key, block);
+            		break;
+        	case BlockHotness::COLD:
+            		Free_cold_block_pool.emplace(key, block);
+            		break;
+    		}
 	}
 
 	unsigned int Flash_Block_Manager_Base::Get_min_max_erase_difference(const NVM::FlashMemory::Physical_Page_Address& plane_address)

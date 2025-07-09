@@ -17,75 +17,179 @@ namespace SSD_Components
 	{
 	}
 
-	void Flash_Block_Manager::Allocate_block_and_page_in_plane_for_user_write(const stream_id_type stream_id, NVM::FlashMemory::Physical_Page_Address& page_address)
+	void Flash_Block_Manager::Allocate_block_and_page_in_plane_for_user_write(const stream_id_type stream_id, NVM::FlashMemory::Physical_Page_Address& page_address, SSD_Components::BlockHotness hotness)
 	{
-		PlaneBookKeepingType *plane_record = &plane_manager[page_address.ChannelID][page_address.ChipID][page_address.DieID][page_address.PlaneID];
-		plane_record->Valid_pages_count++;
-		plane_record->Free_pages_count--;		
-		page_address.BlockID = plane_record->Data_wf[stream_id]->BlockID;
-		page_address.PageID = plane_record->Data_wf[stream_id]->Current_page_write_index++;
-		program_transaction_issued(page_address);
+		// 1) Locate plane record
+    		PlaneBookKeepingType &pbk =
+        		plane_manager[page_address.ChannelID]
+                     		[page_address.ChipID]
+                     		[page_address.DieID]
+                     		[page_address.PlaneID];
 
-		//The current write frontier block is written to the end
-		if(plane_record->Data_wf[stream_id]->Current_page_write_index == pages_no_per_block) {
-			//Assign a new write frontier block
-			plane_record->Data_wf[stream_id] = plane_record->Get_a_free_block(stream_id, false);
-			gc_and_wl_unit->Check_gc_required(plane_record->Get_free_block_pool_size(), page_address);
-		}
+    		// 2) Select the appropriate write frontier based on hotness
+    		Block_Pool_Slot_Type *frontier = nullptr;
+    		switch (hotness) {
+        		case BlockHotness::HOT:
+            			frontier = pbk.Data_hot_wf[stream_id];
+            			break;
+        		case BlockHotness::WARM:
+            			frontier = pbk.Data_warm_wf[stream_id];
+            			break;
+        		case BlockHotness::COLD:
+            			frontier = pbk.Data_cold_wf[stream_id];
+            			break;
+    		}
 
-		plane_record->Check_bookkeeping_correctness(page_address);
+    		// 3) Update bookkeeping counts
+    		pbk.Valid_pages_count++;
+    		pbk.Free_pages_count--;
+
+    		// 4) Assign PPA
+    		page_address.BlockID = frontier->BlockID;
+    		page_address.PageID  = frontier->Current_page_write_index++;
+    		program_transaction_issued(page_address);
+
+    		// 5) If block is full, allocate a new frontier from same pool
+    		if (frontier->Current_page_write_index == pages_no_per_block) {
+        		Block_Pool_Slot_Type *new_frontier =
+            		pbk.Get_a_free_block(stream_id, false, hotness);
+        		switch (hotness) {
+            		case BlockHotness::HOT:
+                		pbk.Data_hot_wf[stream_id] = new_frontier;
+                		break;
+            		case BlockHotness::WARM:
+                		pbk.Data_warm_wf[stream_id] = new_frontier;
+                		break;
+            		case BlockHotness::COLD:
+                		pbk.Data_cold_wf[stream_id] = new_frontier;
+                		break;
+        		}
+        		gc_and_wl_unit->Check_gc_required(
+            		pbk.Get_free_block_pool_size(),
+            		page_address);
+    		}
+
+    		// 6) Sanity check
+    		pbk.Check_bookkeeping_correctness(page_address);
 	}
 
-	void Flash_Block_Manager::Allocate_block_and_page_in_plane_for_gc_write(const stream_id_type stream_id, NVM::FlashMemory::Physical_Page_Address& page_address)
+	void Flash_Block_Manager::Allocate_block_and_page_in_plane_for_gc_write(const stream_id_type stream_id, NVM::FlashMemory::Physical_Page_Address& page_address, SSD_Components::BlockHotness hotness)
 	{
-		PlaneBookKeepingType *plane_record = &plane_manager[page_address.ChannelID][page_address.ChipID][page_address.DieID][page_address.PlaneID];
-		plane_record->Valid_pages_count++;
-		plane_record->Free_pages_count--;		
-		page_address.BlockID = plane_record->GC_wf[stream_id]->BlockID;
-		page_address.PageID = plane_record->GC_wf[stream_id]->Current_page_write_index++;
+		// 1) Locate plane record
+    		PlaneBookKeepingType &pbk =
+        		plane_manager[page_address.ChannelID]
+                     		[page_address.ChipID]
+                     		[page_address.DieID]
+                     		[page_address.PlaneID];
 
-		
-		//The current write frontier block is written to the end
-		if (plane_record->GC_wf[stream_id]->Current_page_write_index == pages_no_per_block) {
-			//Assign a new write frontier block
-			plane_record->GC_wf[stream_id] = plane_record->Get_a_free_block(stream_id, false);
-			gc_and_wl_unit->Check_gc_required(plane_record->Get_free_block_pool_size(), page_address);
-		}
-		plane_record->Check_bookkeeping_correctness(page_address);
+    		// 2) Select the appropriate GC write frontier based on hotness
+    		Block_Pool_Slot_Type *frontier = nullptr;
+    		switch (hotness) {
+        		case BlockHotness::HOT:
+            			frontier = pbk.GC_hot_wf[stream_id];
+            			break;
+        		case BlockHotness::WARM:
+            			frontier = pbk.GC_warm_wf[stream_id];
+            			break;
+        		case BlockHotness::COLD:
+            			frontier = pbk.GC_cold_wf[stream_id];
+            			break;
+    		}
+
+    		// 3) Update bookkeeping counts
+    		pbk.Valid_pages_count++;
+    		pbk.Free_pages_count--;
+
+    		// 4) Assign PPA
+    		page_address.BlockID = frontier->BlockID;
+    		page_address.PageID  = frontier->Current_page_write_index++;
+
+    		// 5) The current GC frontier is written to the end
+    		if (frontier->Current_page_write_index == pages_no_per_block) {
+        		// Assign a new GC write frontier block from same pool
+        		Block_Pool_Slot_Type *new_frontier =
+            		pbk.Get_a_free_block(stream_id, false, hotness);
+        		switch (hotness) {
+            		case BlockHotness::HOT:
+                		pbk.GC_hot_wf[stream_id]  = new_frontier;
+                		break;
+            		case BlockHotness::WARM:
+                		pbk.GC_warm_wf[stream_id] = new_frontier;
+                		break;
+            		case BlockHotness::COLD:
+                		pbk.GC_cold_wf[stream_id] = new_frontier;
+                		break;
+        		}
+        		gc_and_wl_unit->Check_gc_required(
+            		pbk.Get_free_block_pool_size(),
+            		page_address);
+    		}
+
+    		// 6) Sanity check
+    		pbk.Check_bookkeeping_correctness(page_address);
 	}
 	
-	void Flash_Block_Manager::Allocate_Pages_in_block_and_invalidate_remaining_for_preconditioning(const stream_id_type stream_id, const NVM::FlashMemory::Physical_Page_Address& plane_address, std::vector<NVM::FlashMemory::Physical_Page_Address>& page_addresses)
+	void Flash_Block_Manager::Allocate_Pages_in_block_and_invalidate_remaining_for_preconditioning(const stream_id_type stream_id, const NVM::FlashMemory::Physical_Page_Address& plane_address, std::vector<NVM::FlashMemory::Physical_Page_Address>& page_addresses, SSD_Components::BlockHotness hotness)
 	{
-		if(page_addresses.size() > pages_no_per_block) {
-			PRINT_ERROR("Error while precondition a physical block: the size of the address list is larger than the pages_no_per_block!")
-		}
-			
-		PlaneBookKeepingType *plane_record = &plane_manager[plane_address.ChannelID][plane_address.ChipID][plane_address.DieID][plane_address.PlaneID];
-		if (plane_record->Data_wf[stream_id]->Current_page_write_index > 0) {
-			PRINT_ERROR("Illegal operation: the Allocate_Pages_in_block_and_invalidate_remaining_for_preconditioning function should be executed for an erased block!")
-		}
+		// 1) Locate plane record
+    		PlaneBookKeepingType &pbk =
+        		plane_manager[plane_address.ChannelID]
+                     		[plane_address.ChipID]
+                     		[plane_address.DieID]
+                     		[plane_address.PlaneID];
 
-		//Assign physical addresses
-		for (int i = 0; i < page_addresses.size(); i++) {
-			plane_record->Valid_pages_count++;
-			plane_record->Free_pages_count--;
-			page_addresses[i].BlockID = plane_record->Data_wf[stream_id]->BlockID;
-			page_addresses[i].PageID = plane_record->Data_wf[stream_id]->Current_page_write_index++;
-			plane_record->Check_bookkeeping_correctness(page_addresses[i]);
-		}
+    		// 2) Select the appropriate data frontier based on hotness
+    		Block_Pool_Slot_Type *frontier = nullptr;
+    		switch (hotness) {
+        		case BlockHotness::HOT:
+            			frontier = pbk.Data_hot_wf[stream_id];
+            			break;
+        		case BlockHotness::WARM:
+            			frontier = pbk.Data_warm_wf[stream_id];
+            			break;
+        		case BlockHotness::COLD:
+            			frontier = pbk.Data_cold_wf[stream_id];
+            			break;
+    		}
 
-		//Invalidate the remaining pages in the block
-		NVM::FlashMemory::Physical_Page_Address target_address(plane_address);
-		while (plane_record->Data_wf[stream_id]->Current_page_write_index < pages_no_per_block) {
-			plane_record->Free_pages_count--;
-			target_address.BlockID = plane_record->Data_wf[stream_id]->BlockID;
-			target_address.PageID = plane_record->Data_wf[stream_id]->Current_page_write_index++;
-			Invalidate_page_in_block_for_preconditioning(stream_id, target_address);
-			plane_record->Check_bookkeeping_correctness(plane_address);
-		}
+    		// Ensure block is fresh (erased)
+    		if (frontier->Current_page_write_index > 0) {
+        		PRINT_ERROR("Illegal operation: preconditioning expects an erased block frontier!");
+    		}
 
-		//Update the write frontier
-		plane_record->Data_wf[stream_id] = plane_record->Get_a_free_block(stream_id, false);
+    		// 3) Assign physical addresses for valid precondition pages
+    		for (size_t i = 0; i < page_addresses.size(); ++i) {
+        		pbk.Valid_pages_count++;
+        		pbk.Free_pages_count--;
+        		page_addresses[i].BlockID = frontier->BlockID;
+        		page_addresses[i].PageID  = frontier->Current_page_write_index++;
+        		pbk.Check_bookkeeping_correctness(page_addresses[i]);
+    		}
+
+    		// 4) Invalidate remaining pages
+    		NVM::FlashMemory::Physical_Page_Address target_address(plane_address);
+    		while (frontier->Current_page_write_index < pages_no_per_block) {
+        		pbk.Free_pages_count--;
+        		target_address.BlockID = frontier->BlockID;
+        		target_address.PageID  = frontier->Current_page_write_index++;
+        		Invalidate_page_in_block_for_preconditioning(stream_id, target_address);
+        		pbk.Check_bookkeeping_correctness(target_address);
+    		}
+
+    		// 5) Allocate a new frontier from same hotness pool
+    		Block_Pool_Slot_Type *new_frontier =
+        		pbk.Get_a_free_block(stream_id, false, hotness);
+    		switch (hotness) {
+        		case BlockHotness::HOT:
+            			pbk.Data_hot_wf[stream_id]  = new_frontier;
+            			break;
+        		case BlockHotness::WARM:
+            			pbk.Data_warm_wf[stream_id] = new_frontier;
+            			break;
+        		case BlockHotness::COLD:
+            			pbk.Data_cold_wf[stream_id] = new_frontier;
+            			break;
+    		}
 	}
 
 	void Flash_Block_Manager::Allocate_block_and_page_in_plane_for_translation_write(const stream_id_type streamID, NVM::FlashMemory::Physical_Page_Address& page_address, bool is_for_gc)
@@ -100,7 +204,7 @@ namespace SSD_Components
 		//The current write frontier block for translation pages is written to the end
 		if (plane_record->Translation_wf[streamID]->Current_page_write_index == pages_no_per_block) {
 			//Assign a new write frontier block
-			plane_record->Translation_wf[streamID] = plane_record->Get_a_free_block(streamID, true);
+			plane_record->Translation_wf[streamID] = plane_record->Get_a_free_block(streamID, true, BlockHotness::HOT);
 			if (!is_for_gc) {
 				gc_and_wl_unit->Check_gc_required(plane_record->Get_free_block_pool_size(), page_address);
 			}

@@ -229,13 +229,20 @@ namespace SSD_Components
 
 	bool GC_and_WL_Unit_Base::is_safe_gc_wl_candidate(const PlaneBookKeepingType* plane_record, const flash_block_ID_type gc_wl_candidate_block_id)
 	{
+		 Block_Pool_Slot_Type* candidate_block = &plane_record->Blocks[gc_wl_candidate_block_id];
 		//The block shouldn't be a current write frontier
 		for (unsigned int stream_id = 0; stream_id < address_mapping_unit->Get_no_of_input_streams(); stream_id++) {
-			if ((&plane_record->Blocks[gc_wl_candidate_block_id]) == plane_record->Data_wf[stream_id]
-				|| (&plane_record->Blocks[gc_wl_candidate_block_id]) == plane_record->Translation_wf[stream_id]
-				|| (&plane_record->Blocks[gc_wl_candidate_block_id]) == plane_record->GC_wf[stream_id]) {
-				return false;
-			}
+			if (candidate_block == plane_record->Data_hot_wf[stream_id]
+         			|| candidate_block == plane_record->Data_warm_wf[stream_id]
+         			|| candidate_block == plane_record->Data_cold_wf[stream_id]
+         			|| candidate_block == plane_record->Translation_wf[stream_id]
+         			|| candidate_block == plane_record->GC_hot_wf[stream_id]
+         			|| candidate_block == plane_record->GC_warm_wf[stream_id]
+         			|| candidate_block == plane_record->GC_cold_wf[stream_id])
+        		{
+            			// if in any wf, return false
+            			return false;
+        		}
 		}
 
 		//The block shouldn't have an ongoing program request (all pages must already be written)

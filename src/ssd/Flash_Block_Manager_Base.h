@@ -4,6 +4,7 @@
 #include <list>
 #include <cstdint>
 #include <queue>
+#include <unordered_map>
 #include <set>
 #include "../nvm_chip/flash_memory/FlashTypes.h"
 #include "../nvm_chip/flash_memory/Physical_Page_Address.h"
@@ -25,6 +26,10 @@ namespace SSD_Components
 	* 5: GC_USER -> GC
 	*/
 	enum class Block_Service_Status {IDLE, GC_WL, USER, GC_USER, GC_UWAIT, GC_USER_UWAIT};
+
+	//Addition to Kibum Lee's Definition (BlockHotness, Pagehotness definition)
+	enum class BlockHotness;
+	enum class PageHotness;
 	
 	class Block_Pool_Slot_Type
 	{
@@ -44,6 +49,7 @@ namespace SSD_Components
 		int Ongoing_user_read_count;
 		int Ongoing_user_program_count;
 		void Erase();
+		BlockHotness Hotness;
 	};
 
 	class PlaneBookKeepingType
@@ -54,15 +60,23 @@ namespace SSD_Components
 		unsigned int Valid_pages_count;
 		unsigned int Invalid_pages_count;
 		Block_Pool_Slot_Type* Blocks;
+		// Free block pool customizing
+		std::multimap<unsigned int, Block_Pool_Slot_Type*> Free_hot_block_pool;
+    		std::multimap<unsigned int, Block_Pool_Slot_Type*> Free_warm_block_pool;
+    		std::multimap<unsigned int, Block_Pool_Slot_Type*> Free_cold_block_pool;
+
 		std::multimap<unsigned int, Block_Pool_Slot_Type*> Free_block_pool;
-		Block_Pool_Slot_Type** Data_wf, ** GC_wf; //The write frontier blocks for data and GC pages. MQSim adopts Double Write Frontier approach for user and GC writes which is shown very advantages in: B. Van Houdt, "On the necessity of hot and cold data identification to reduce the write amplification in flash - based SSDs", Perf. Eval., 2014
+		Block_Pool_Slot_Type** Data_hot_wf, ** Data_warm_wf, ** Data_cold_wf, ** GC_hot_wf, ** GC_warm_wf, ** GC_cold_wf; //The write frontier blocks for data and GC pages. MQSim adopts Double Write Frontier approach for user and GC writes which is shown very advantages in: B. Van Houdt, "On the necessity of hot and cold data identification to reduce the write amplification in flash - based SSDs", Perf. Eval., 2014
 		Block_Pool_Slot_Type** Translation_wf; //The write frontier blocks for translation GC pages
 		std::queue<flash_block_ID_type> Block_usage_history;//A fifo queue that keeps track of flash blocks based on their usage history
 		std::set<flash_block_ID_type> Ongoing_erase_operations;
 		Block_Pool_Slot_Type* Get_a_free_block(stream_id_type stream_id, bool for_mapping_data);
+		Block_Pool_Slot_Type* Get_a_free_block(stream_id_type stream_id, bool for_mapping_data, SSD_Components::BlockHotness blockhotness);
 		unsigned int Get_free_block_pool_size();
 		void Check_bookkeeping_correctness(const NVM::FlashMemory::Physical_Page_Address& plane_address);
 		void Add_to_free_block_pool(Block_Pool_Slot_Type* block, bool consider_dynamic_wl);
+
+		void Add_to_free_block_pool(Block_Pool_Slot_Type* block, bool consdier_dynamic_wl, SSD_Components::BlockHotness blockhotness);
 	};
 
 	class Flash_Block_Manager_Base
@@ -75,10 +89,10 @@ namespace SSD_Components
 			unsigned int channel_count, unsigned int chip_no_per_channel, unsigned int die_no_per_chip, unsigned int plane_no_per_die,
 			unsigned int block_no_per_plane, unsigned int page_no_per_block);
 		virtual ~Flash_Block_Manager_Base();
-		virtual void Allocate_block_and_page_in_plane_for_user_write(const stream_id_type streamID, NVM::FlashMemory::Physical_Page_Address& address) = 0;
-		virtual void Allocate_block_and_page_in_plane_for_gc_write(const stream_id_type streamID, NVM::FlashMemory::Physical_Page_Address& address) = 0;
+		virtual void Allocate_block_and_page_in_plane_for_user_write(const stream_id_type streamID, NVM::FlashMemory::Physical_Page_Address& address, SSD_Components::BlockHotness hotness) = 0;
+		virtual void Allocate_block_and_page_in_plane_for_gc_write(const stream_id_type streamID, NVM::FlashMemory::Physical_Page_Address& address, SSD_Components::BlockHotness hotness) = 0;
 		virtual void Allocate_block_and_page_in_plane_for_translation_write(const stream_id_type streamID, NVM::FlashMemory::Physical_Page_Address& address, bool is_for_gc) = 0;
-		virtual void Allocate_Pages_in_block_and_invalidate_remaining_for_preconditioning(const stream_id_type stream_id, const NVM::FlashMemory::Physical_Page_Address& plane_address, std::vector<NVM::FlashMemory::Physical_Page_Address>& page_addresses) = 0;
+		virtual void Allocate_Pages_in_block_and_invalidate_remaining_for_preconditioning(const stream_id_type stream_id, const NVM::FlashMemory::Physical_Page_Address& plane_address, std::vector<NVM::FlashMemory::Physical_Page_Address>& page_addresses, SSD_Components::BlockHotness hotness) = 0;
 		virtual void Invalidate_page_in_block(const stream_id_type streamID, const NVM::FlashMemory::Physical_Page_Address& address) = 0;
 		virtual void Invalidate_page_in_block_for_preconditioning(const stream_id_type streamID, const NVM::FlashMemory::Physical_Page_Address& address) = 0;
 		virtual void Add_erased_block_to_pool(const NVM::FlashMemory::Physical_Page_Address& address) = 0;

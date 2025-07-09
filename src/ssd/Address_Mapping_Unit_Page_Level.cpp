@@ -409,6 +409,66 @@ namespace SSD_Components
 		delete[] Write_transactions_for_overfull_planes;
 	}
 
+	void Address_Mapping_Unit_Page_Level::increment_access_counter(LPA_type lpa) {
+			auto it = lpa_access_counter.find(lpa);
+			if (it == lpa_access_counter.end()) {
+					lpa_access_counter[lpa] = 1;
+			}
+			else if (it->second < 3) {
+					++(it->second);
+			}
+	}
+
+	SSD_Components::PageHotness Address_Mapping_Unit_Page_Level::DeterminePageHotness(LPA_type lpa) {
+			uint8_t ctr = lpa_access_counter[lpa];  // 0~3 saturation counter
+			if      (ctr >= 2) return PageHotness::HOT;   // 2,3 → HOT
+			else               return PageHotness::COLD;  //   0 → COLD
+	}
+
+
+	SSD_Components::BlockHotness Address_Mapping_Unit_Page_Level::PickTargetBlockHotness(stream_id_type stream_id, LPA_type lpa, const NVM::FlashMemory::Physical_Page_Address& new_pa)
+	{
+    		AddressMappingDomain* domain = domains[stream_id];
+    		PPA_type old_ppa  = domain->Get_ppa(ideal_mapping_table, stream_id, lpa);
+
+    		// 1) first write -> 100% WARM block
+    		if (old_ppa == NO_PPA) {
+        		return BlockHotness::WARM;
+    		}
+
+    		// 2) PPA transition to Address
+		NVM::FlashMemory::Physical_Page_Address old_pa;
+    		Convert_ppa_to_address(old_ppa, old_pa);
+    		auto &pbk = block_manager->plane_manager
+        		[new_pa.ChannelID]
+        		[new_pa.ChipID]
+        		[new_pa.DieID]
+        		[new_pa.PlaneID];
+
+    		// 3) certify hotness from the previous block metadata
+    		Block_Pool_Slot_Type* old_blk = &pbk.Blocks[old_pa.BlockID];
+		SSD_Components::BlockHotness old_h = old_blk->Hotness;
+
+    		// 4) original hot -> 100% hot block
+    		if (old_h == BlockHotness::HOT) {
+        		return BlockHotness::HOT;
+    		}
+    		// 5) WARM -> WARM until doing WARM reclaim algorithm
+    		if (old_h == BlockHotness::WARM) {
+        		return BlockHotness::WARM;
+    		}
+    		// 6) COLD -> check whether this page is suddenly being hot or not
+    		if (old_h == BlockHotness::COLD) {
+        		PageHotness ph = DeterminePageHotness(lpa);
+        		return (ph == PageHotness::COLD
+                    		? BlockHotness::COLD
+                    		: BlockHotness::WARM);
+    		}
+
+    		// (can't reach here, but for security!)
+    		return BlockHotness::WARM;
+	}
+
 	void Address_Mapping_Unit_Page_Level::Setup_triggers()
 	{
 		Sim_Object::Setup_triggers();
@@ -731,7 +791,17 @@ namespace SSD_Components
 									NVM::FlashMemory::Physical_Page_Address addr(plane_address.ChannelID, plane_address.ChipID, plane_address.DieID, plane_address.PlaneID, 0, 0);
 									addresses.push_back(addr);
 								}
-								block_manager->Allocate_Pages_in_block_and_invalidate_remaining_for_preconditioning(stream_id, plane_address, addresses);
+								SSD_Components::BlockHotness hotness;
+								double valid_ratio = (double)valid_pages_in_block / pages_no_per_block;
+
+								if (valid_ratio > 0.7) {  // 70% over->hot
+									hotness = BlockHotness::HOT;
+								} else if (valid_ratio > 0.3) {  // 30-70% -> warn
+									hotness = BlockHotness::WARM;
+								} else {  // 30% lower -> cold
+									hotness = BlockHotness::COLD;
+								}
+								block_manager->Allocate_Pages_in_block_and_invalidate_remaining_for_preconditioning(stream_id, plane_address, addresses, hotness);
 
 								//Update mapping table
 								for (auto const &address : addresses) {
@@ -1195,15 +1265,41 @@ namespace SSD_Components
 				}
 			}
 		}
+		auto &pa = transaction->Address;
+    		PlaneBookKeepingType &pbk =
+        		block_manager->plane_manager
+            		[pa.ChannelID]
+            		[pa.ChipID]
+            		[pa.DieID]
+            		[pa.PlaneID];
 
+    		// Decide BlockHotness
+    		BlockHotness target_h =
+        		PickTargetBlockHotness(transaction->Stream_id, transaction->LPA,
+                               		pa);
+
+    		// 4) changed call: add hotness parameter
+    		if (is_for_gc) {
+        		block_manager->Allocate_block_and_page_in_plane_for_gc_write(
+            		transaction->Stream_id,
+            		transaction->Address,
+            		target_h);
+    		} else {
+        		block_manager->Allocate_block_and_page_in_plane_for_user_write(
+            		transaction->Stream_id,
+            		transaction->Address,
+            		target_h);
+    		}
 		/*The following lines should not be ordered with respect to the block_manager->Invalidate_page_in_block
 		* function call in the above code blocks. Otherwise, GC may be invoked (due to the call to Allocate_block_....) and
 		* may decide to move a page that is just invalidated.*/
 		if (is_for_gc) {
-			block_manager->Allocate_block_and_page_in_plane_for_gc_write(transaction->Stream_id, transaction->Address);
+			block_manager->Allocate_block_and_page_in_plane_for_gc_write(transaction->Stream_id, transaction->Address, target_h);
 		} else {
-			block_manager->Allocate_block_and_page_in_plane_for_user_write(transaction->Stream_id, transaction->Address);
+			block_manager->Allocate_block_and_page_in_plane_for_user_write(transaction->Stream_id, transaction->Address, target_h);
 		}
+		// Addition to Kibum Lee's Definition (custom access counter)
+		increment_access_counter(transaction->LPA);
 		transaction->PPA = Convert_address_to_ppa(transaction->Address);
 		domain->Update_mapping_info(ideal_mapping_table, transaction->Stream_id, transaction->LPA, transaction->PPA,
 			((NVM_Transaction_Flash_WR*)transaction)->write_sectors_bitmap | domain->Get_page_status(ideal_mapping_table, transaction->Stream_id, transaction->LPA));
@@ -1391,8 +1487,8 @@ namespace SSD_Components
 			default:
 				PRINT_ERROR("Unknown plane allocation scheme type!")
 		}
-
-		block_manager->Allocate_block_and_page_in_plane_for_user_write(stream_id, read_address);
+		SSD_Components::BlockHotness target_h = PickTargetBlockHotness(stream_id, lpa, read_address);
+		block_manager->Allocate_block_and_page_in_plane_for_user_write(stream_id, read_address, target_h);
 		PPA_type ppa = Convert_address_to_ppa(read_address);
 		domain->Update_mapping_info(ideal_mapping_table, stream_id, lpa, ppa, read_sectors_bitmap);
 
