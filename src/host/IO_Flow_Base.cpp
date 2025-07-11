@@ -231,8 +231,8 @@ IO_Flow_Base::IO_Flow_Base(const sim_object_id_type &name, uint16_t flow_id, LHA
 				}
 			}
 			progress_bar += "] ";
-			PRINT_MESSAGE(progress_bar << " " << progress << "% progress in " << ID() << std::endl)
-				next_progress_step += 5;
+			PRINT_MESSAGE(progress_bar << " " << progress << "% progress in " << ID() << std::endl);
+			next_progress_step += 5;
 		}
 
 		if (Simulator->Time() > next_logging_milestone) {

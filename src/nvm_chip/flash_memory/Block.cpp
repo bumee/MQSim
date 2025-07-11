@@ -8,10 +8,6 @@ namespace NVM
 		{
 			ID = BlockID;
 			Pages = new Page[PagesNoPerBlock];
-			ispp_latency = 1000000; //1ms
-			ispe_latency = 1000000; //1ms
-			isispp = false;
-			isispe = false;
 		}
 
 		Block::~Block()

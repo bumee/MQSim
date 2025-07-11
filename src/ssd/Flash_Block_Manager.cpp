@@ -17,60 +17,76 @@ namespace SSD_Components
 	{
 	}
 
-	void Flash_Block_Manager::Allocate_block_and_page_in_plane_for_user_write(const stream_id_type stream_id, NVM::FlashMemory::Physical_Page_Address& page_address, SSD_Components::BlockHotness hotness)
+	void Flash_Block_Manager::Allocate_block_and_page_in_plane_for_user_write(const stream_id_type stream_id, NVM::FlashMemory::Physical_Page_Address& page_address, BlockHotness hotness)
 	{
 		// 1) Locate plane record
-    		PlaneBookKeepingType &pbk =
-        		plane_manager[page_address.ChannelID]
-                     		[page_address.ChipID]
-                     		[page_address.DieID]
-                     		[page_address.PlaneID];
+		PlaneBookKeepingType &pbk = plane_manager[page_address.ChannelID][page_address.ChipID][page_address.DieID][page_address.PlaneID];
 
-    		// 2) Select the appropriate write frontier based on hotness
-    		Block_Pool_Slot_Type *frontier = nullptr;
-    		switch (hotness) {
-        		case BlockHotness::HOT:
-            			frontier = pbk.Data_hot_wf[stream_id];
-            			break;
-        		case BlockHotness::WARM:
-            			frontier = pbk.Data_warm_wf[stream_id];
-            			break;
-        		case BlockHotness::COLD:
-            			frontier = pbk.Data_cold_wf[stream_id];
-            			break;
-    		}
+		// 2) Select the appropriate write frontier based on hotness
+		Block_Pool_Slot_Type *frontier = nullptr;
+		switch (hotness) {
+			case BlockHotness::HOT:
+				frontier = pbk.Data_hot_wf[stream_id];
+				break;
+			case BlockHotness::WARM:
+				frontier = pbk.Data_warm_wf[stream_id];
+				break;
+			case BlockHotness::COLD:
+				frontier = pbk.Data_cold_wf[stream_id];
+				break;
+		}
 
-    		// 3) Update bookkeeping counts
-    		pbk.Valid_pages_count++;
-    		pbk.Free_pages_count--;
+		// 3) Update bookkeeping counts
+		pbk.Valid_pages_count++;
+		pbk.Free_pages_count--;
 
-    		// 4) Assign PPA
-    		page_address.BlockID = frontier->BlockID;
-    		page_address.PageID  = frontier->Current_page_write_index++;
-    		program_transaction_issued(page_address);
+		// 4) Assign PPA
+		page_address.BlockID = frontier->BlockID;
+		
+		// For hot/warm blocks, only use LSB pages
+		if (hotness == BlockHotness::HOT || hotness == BlockHotness::WARM) {
+			// Skip to next LSB page
+			while (frontier->Current_page_write_index < pages_no_per_block) {
+				flash_page_ID_type pageID = frontier->Current_page_write_index;
+				// 3 pages per block
+				if (pageID % 3 == 0) {
+					break;
+				}
+				frontier->Current_page_write_index++;
+			}
+		}
+		
+		page_address.PageID = frontier->Current_page_write_index++;
+		program_transaction_issued(page_address);
 
-    		// 5) If block is full, allocate a new frontier from same pool
-    		if (frontier->Current_page_write_index == pages_no_per_block) {
-        		Block_Pool_Slot_Type *new_frontier =
-            		pbk.Get_a_free_block(stream_id, false, hotness);
-        		switch (hotness) {
-            		case BlockHotness::HOT:
-                		pbk.Data_hot_wf[stream_id] = new_frontier;
-                		break;
-            		case BlockHotness::WARM:
-                		pbk.Data_warm_wf[stream_id] = new_frontier;
-                		break;
-            		case BlockHotness::COLD:
-                		pbk.Data_cold_wf[stream_id] = new_frontier;
-                		break;
-        		}
-        		gc_and_wl_unit->Check_gc_required(
-            		pbk.Get_free_block_pool_size(),
-            		page_address);
-    		}
+		// 5) If block is full or no more LSB pages available, allocate a new frontier from same pool
+		bool need_new_block = false;
+		if (hotness == BlockHotness::HOT || hotness == BlockHotness::WARM) {
+			// For hot/warm blocks, check if we've used all LSB pages
+			need_new_block = (frontier->Current_page_write_index >= pages_no_per_block);
+		} else {
+			// For cold blocks, use normal full block check
+			need_new_block = (frontier->Current_page_write_index == pages_no_per_block);
+		}
 
-    		// 6) Sanity check
-    		pbk.Check_bookkeeping_correctness(page_address);
+		if (need_new_block) {
+			Block_Pool_Slot_Type *new_frontier = pbk.Get_a_free_block(stream_id, false, hotness);
+			switch (hotness) {
+				case BlockHotness::HOT:
+					pbk.Data_hot_wf[stream_id] = new_frontier;
+					break;
+				case BlockHotness::WARM:
+					pbk.Data_warm_wf[stream_id] = new_frontier;
+					break;
+				case BlockHotness::COLD:
+					pbk.Data_cold_wf[stream_id] = new_frontier;
+					break;
+			}
+			gc_and_wl_unit->Check_gc_required(pbk.Get_free_block_pool_size(), page_address);
+		}
+
+		// 6) Sanity check
+		pbk.Check_bookkeeping_correctness(page_address);
 	}
 
 	void Flash_Block_Manager::Allocate_block_and_page_in_plane_for_gc_write(const stream_id_type stream_id, NVM::FlashMemory::Physical_Page_Address& page_address, SSD_Components::BlockHotness hotness)
@@ -204,7 +220,7 @@ namespace SSD_Components
 		//The current write frontier block for translation pages is written to the end
 		if (plane_record->Translation_wf[streamID]->Current_page_write_index == pages_no_per_block) {
 			//Assign a new write frontier block
-			plane_record->Translation_wf[streamID] = plane_record->Get_a_free_block(streamID, true, BlockHotness::HOT);
+			plane_record->Translation_wf[streamID] = plane_record->Get_a_free_block(streamID, true, BlockHotness::WARM);
 			if (!is_for_gc) {
 				gc_and_wl_unit->Check_gc_required(plane_record->Get_free_block_pool_size(), page_address);
 			}
@@ -246,12 +262,12 @@ namespace SSD_Components
 		Stats::Block_erase_histogram[block_address.ChannelID][block_address.ChipID][block_address.DieID][block_address.PlaneID][block->Erase_count]--;
 		block->Erase();
 		Stats::Block_erase_histogram[block_address.ChannelID][block_address.ChipID][block_address.DieID][block_address.PlaneID][block->Erase_count]++;
-		plane_record->Add_to_free_block_pool(block, gc_and_wl_unit->Use_dynamic_wearleveling());
+		plane_record->Add_to_free_block_pool(block, gc_and_wl_unit->Use_dynamic_wearleveling(), BlockHotness::COLD);
 		plane_record->Check_bookkeeping_correctness(block_address);
 	}
 
 	inline unsigned int Flash_Block_Manager::Get_pool_size(const NVM::FlashMemory::Physical_Page_Address& plane_address)
 	{
-		return (unsigned int) plane_manager[plane_address.ChannelID][plane_address.ChipID][plane_address.DieID][plane_address.PlaneID].Free_block_pool.size();
+		return (unsigned int) plane_manager[plane_address.ChannelID][plane_address.ChipID][plane_address.DieID][plane_address.PlaneID].Free_hot_block_pool.size() + plane_manager[plane_address.ChannelID][plane_address.ChipID][plane_address.DieID][plane_address.PlaneID].Free_warm_block_pool.size() + plane_manager[plane_address.ChannelID][plane_address.ChipID][plane_address.DieID][plane_address.PlaneID].Free_cold_block_pool.size();	
 	}
 }

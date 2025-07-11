@@ -1273,30 +1273,22 @@ namespace SSD_Components
             		[pa.DieID]
             		[pa.PlaneID];
 
-    		// Decide BlockHotness
-    		BlockHotness target_h =
-        		PickTargetBlockHotness(transaction->Stream_id, transaction->LPA,
-                               		pa);
+		// Decide BlockHotness
+		BlockHotness target_h =
+			PickTargetBlockHotness(transaction->Stream_id, transaction->LPA,
+								pa);
 
-    		// 4) changed call: add hotness parameter
-    		if (is_for_gc) {
-        		block_manager->Allocate_block_and_page_in_plane_for_gc_write(
-            		transaction->Stream_id,
-            		transaction->Address,
-            		target_h);
-    		} else {
-        		block_manager->Allocate_block_and_page_in_plane_for_user_write(
-            		transaction->Stream_id,
-            		transaction->Address,
-            		target_h);
-    		}
-		/*The following lines should not be ordered with respect to the block_manager->Invalidate_page_in_block
-		* function call in the above code blocks. Otherwise, GC may be invoked (due to the call to Allocate_block_....) and
-		* may decide to move a page that is just invalidated.*/
+		// 4) changed call: add hotness parameter
 		if (is_for_gc) {
-			block_manager->Allocate_block_and_page_in_plane_for_gc_write(transaction->Stream_id, transaction->Address, target_h);
+			block_manager->Allocate_block_and_page_in_plane_for_gc_write(
+				transaction->Stream_id,
+				transaction->Address,
+				target_h);
 		} else {
-			block_manager->Allocate_block_and_page_in_plane_for_user_write(transaction->Stream_id, transaction->Address, target_h);
+			block_manager->Allocate_block_and_page_in_plane_for_user_write(
+				transaction->Stream_id,
+				transaction->Address,
+				target_h);
 		}
 		// Addition to Kibum Lee's Definition (custom access counter)
 		increment_access_counter(transaction->LPA);

@@ -80,6 +80,7 @@ namespace MQSimEngine
 		Sim_Event* ev = NULL;
 		while (true) {
 			if (_EventList->Count == 0 || stop) {
+				PRINT_MESSAGE("Simulation stopped at time " << _sim_time)
 				break;
 			}
 

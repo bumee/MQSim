@@ -16,9 +16,11 @@ namespace SSD_Components
 		float warm_ratio = 0.20f;   // 예: 20%를 warm
 
 		unsigned int blocks_per_plane = block_no_per_plane;
+		std::cout << "blocks_per_plane: " << blocks_per_plane << std::endl;
 
 		unsigned int hot_count  = static_cast<unsigned int>(blocks_per_plane * hot_ratio);
 		unsigned int warm_count = static_cast<unsigned int>(blocks_per_plane * warm_ratio);
+		std::cout << "hot_count: " << hot_count << " warm_count: " << warm_count << std::endl;
 		for (unsigned int channelID = 0; channelID < channel_count; channelID++) {
 			plane_manager[channelID] = new PlaneBookKeepingType**[chip_no_per_channel];
 			for (unsigned int chipID = 0; chipID < chip_no_per_channel; chipID++) {
@@ -135,50 +137,83 @@ namespace SSD_Components
 		Erase_transaction = NULL;
 	}
 
-	Block_Pool_Slot_Type* PlaneBookKeepingType::Get_a_free_block(stream_id_type stream_id, bool for_mapping_data)
-	{
-		Block_Pool_Slot_Type* new_block = NULL;
-		new_block = (*Free_block_pool.begin()).second;//Assign a new write frontier block
-		if (Free_block_pool.size() == 0) {
-			PRINT_ERROR("Requesting a free block from an empty pool!")
-		}
-		Free_block_pool.erase(Free_block_pool.begin());
-		new_block->Stream_id = stream_id;
-		new_block->Holds_mapping_data = for_mapping_data;
-		Block_usage_history.push(new_block->BlockID);
-
-		return new_block;
-	}
-
-	// Addition to Kibum Lee's Definition (custom get a free block)
 	Block_Pool_Slot_Type* PlaneBookKeepingType::Get_a_free_block(stream_id_type stream_id, bool for_mapping_data, SSD_Components::BlockHotness blockhotness)
 	{
+    // 3-2) select proper block pool
+    std::multimap<unsigned int, Block_Pool_Slot_Type*>* primary_pool = nullptr;
+    std::multimap<unsigned int, Block_Pool_Slot_Type*>* fallback_pool1 = nullptr;
+    std::multimap<unsigned int, Block_Pool_Slot_Type*>* fallback_pool2 = nullptr;
 
-		// 3-2) select proper block pool
-		auto& pool = (blockhotness == BlockHotness::HOT   ? Free_hot_block_pool
-				: blockhotness == BlockHotness::WARM ? Free_warm_block_pool
-												: Free_cold_block_pool);
+    // Set primary and fallback pools based on hotness
+    switch(blockhotness) {
+        case BlockHotness::HOT:
+            primary_pool = &Free_hot_block_pool;
+            fallback_pool1 = &Free_warm_block_pool;
+            fallback_pool2 = &Free_cold_block_pool;
+            break;
+        case BlockHotness::WARM:
+            primary_pool = &Free_warm_block_pool;
+            fallback_pool1 = &Free_hot_block_pool;
+            fallback_pool2 = &Free_cold_block_pool;
+            break;
+        case BlockHotness::COLD:
+            primary_pool = &Free_cold_block_pool;
+            fallback_pool1 = &Free_warm_block_pool;
+            fallback_pool2 = &Free_hot_block_pool;
+            break;
+    }
 
-		// 3-3) pool empty -> currently, fail (it could be fallback to other pool)
-		if (pool.empty()) {
-			PRINT_ERROR("Requesting a free block from an empty " 
-				+ std::string(blockhotness==BlockHotness::HOT? "HOT":"WARM/COLD") 
-				+ " pool!");
-			return nullptr;
-		}		
+    // Try to get a block from primary pool
+    if (!primary_pool->empty()) {
+        auto it = primary_pool->begin();
+        Block_Pool_Slot_Type* new_block = it->second;
+        primary_pool->erase(it);
+        
+        new_block->Stream_id = stream_id;
+        new_block->Holds_mapping_data = for_mapping_data;
+        Block_usage_history.push(new_block->BlockID);
+        
+        return new_block;
+    }
 
-		// 3-4) select lowest key and value from multimap.begin()
-		auto it = pool.begin();
-		Block_Pool_Slot_Type* new_block = it->second;
-		pool.erase(it);
+    // Try first fallback pool
+    if (!fallback_pool1->empty()) {
+        //PRINT_MESSAGE("Warning: Primary pool empty, using first fallback pool for hotness " + 
+            //std::string(blockhotness == BlockHotness::HOT ? "HOT" : 
+                       //blockhotness == BlockHotness::WARM ? "WARM" : "COLD"));
+        
+        auto it = fallback_pool1->begin();
+        Block_Pool_Slot_Type* new_block = it->second;
+        fallback_pool1->erase(it);
+        
+        new_block->Stream_id = stream_id;
+        new_block->Holds_mapping_data = for_mapping_data;
+        Block_usage_history.push(new_block->BlockID);
+        
+        return new_block;
+    }
 
-		// 3-5) attribute setting
-		new_block->Stream_id = stream_id;
-		new_block->Holds_mapping_data = for_mapping_data;
-		Block_usage_history.push(new_block->BlockID);
+    // Try second fallback pool
+    if (!fallback_pool2->empty()) {
+        //PRINT_MESSAGE("Warning: Primary and first fallback pools empty, using second fallback pool for hotness " + 
+            //std::string(blockhotness == BlockHotness::HOT ? "HOT" : 
+                       //blockhotness == BlockHotness::WARM ? "WARM" : "COLD"));
+        
+        auto it = fallback_pool2->begin();
+        Block_Pool_Slot_Type* new_block = it->second;
+        fallback_pool2->erase(it);
+        
+        new_block->Stream_id = stream_id;
+        new_block->Holds_mapping_data = for_mapping_data;
+        Block_usage_history.push(new_block->BlockID);
+        
+        return new_block;
+    }
 
-		return new_block;
-	}
+    // All pools are empty
+    PRINT_ERROR("All free block pools are empty!");
+    return nullptr;
+}
 	
 	void PlaneBookKeepingType::Check_bookkeeping_correctness(const NVM::FlashMemory::Physical_Page_Address& plane_address)
 	{

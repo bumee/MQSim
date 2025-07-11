@@ -81,29 +81,25 @@ namespace NVM
 			typedef void(*ChipReadySignalHandlerType) (Flash_Chip* targetChip, Flash_Command* command);
 			void Connect_to_chip_ready_signal(ChipReadySignalHandlerType);
 
-			sim_time_type Get_ISPP_latency_for_block(const Physical_Page_Address& pageAddress)
-			{
-    			Block* targetBlock = Dies[pageAddress.DieID]->Planes[pageAddress.PlaneID]->Blocks[pageAddress.BlockID];
-    			return targetBlock->isispp ? targetBlock->ispp_latency : 0;
-			}
-
-			sim_time_type Get_ISPE_latency_for_block(const Physical_Page_Address& pageAddress)
-			{
-				Block* targetBlock = Dies[pageAddress.DieID]->Planes[pageAddress.PlaneID]->Blocks[pageAddress.BlockID];
-				return targetBlock->isispe ? targetBlock->ispe_latency : 0;
-			}
 
 			sim_time_type Get_command_execution_latency(command_code_type CMDCode, const Physical_Page_Address& pageAddress)
-			{	
+			{   
 				sim_time_type pageID = pageAddress.PageID;
 				int latencyType = 0;
 				if (flash_technology == Flash_Technology_Type::MLC) {
 					latencyType = pageID % 2;
 				} else if (flash_technology == Flash_Technology_Type::TLC) {
-					//From: Yaakobi et al., "Characterization and Error-Correcting Codes for TLC Flash Memories", ICNC 2012
-					latencyType = (pageID <= 5) ? 0 : ((pageID <= 7) ? 1 : (((pageID - 8) >> 1) % 3));;
+					// decide LSB/CSB/MSB 
+					unsigned int pages_per_third = page_no_per_block / 3;
+					if (pageID < pages_per_third) {
+						latencyType = 0; // LSB
+					} else if (pageID < 2 * pages_per_third) {
+						latencyType = 1; // CSB
+					} else {
+						latencyType = 2; // MSB
+					}
 				}
-				sim_time_type baseLatency;
+				
 				switch (CMDCode)
 				{
 					case CMD_READ_PAGE:
@@ -116,11 +112,11 @@ namespace NVM
 					case CMD_PROGRAM_PAGE_MULTIPLANE:
 					case CMD_PROGRAM_PAGE_COPYBACK:
 					case CMD_PROGRAM_PAGE_COPYBACK_MULTIPLANE:
-						 return _programLatency[latencyType] + _RBSignalDelayWrite + Get_ISPP_latency_for_block(pageAddress);
+						 return _programLatency[latencyType] + _RBSignalDelayWrite;
 						
 					case CMD_ERASE_BLOCK:
 					case CMD_ERASE_BLOCK_MULTIPLANE:
-						return _eraseLatency + _RBSignalDelayErase + Get_ISPE_latency_for_block(pageAddress);
+						return _eraseLatency + _RBSignalDelayErase;
 						
 					default:
 						throw std::invalid_argument("Unsupported command for flash chip.");
