@@ -50,6 +50,9 @@ namespace SSD_Components
 		int Ongoing_user_program_count;
 		void Erase();
 		BlockHotness Hotness;
+		sim_time_type Last_access_time;
+		uint8_t* page_hotness_counters;
+		unsigned int lsb_page_written_count = 0;
 	};
 
 	class PlaneBookKeepingType
@@ -77,6 +80,9 @@ namespace SSD_Components
 		void Add_to_free_block_pool(Block_Pool_Slot_Type* block, bool consider_dynamic_wl);
 
 		void Add_to_free_block_pool(Block_Pool_Slot_Type* block, bool consdier_dynamic_wl, SSD_Components::BlockHotness blockhotness);
+
+		void Move_block_to_hot_pool(Block_Pool_Slot_Type* block);
+		void Move_block_to_cold_pool(Block_Pool_Slot_Type* block);
 	};
 
 	class Flash_Block_Manager_Base
@@ -110,6 +116,10 @@ namespace SSD_Components
 		void Program_transaction_serviced(const NVM::FlashMemory::Physical_Page_Address& page_address);//Updates the block bookkeeping record
 		bool Is_having_ongoing_program(const NVM::FlashMemory::Physical_Page_Address& block_address);//Cheks if block has any ongoing program request
 		bool Is_page_valid(Block_Pool_Slot_Type* block, flash_page_ID_type page_id);//Make the page invalid in the block bookkeeping record
+
+		void Change_block_status_to_hot(Block_Pool_Slot_Type* block, const NVM::FlashMemory::Physical_Page_Address& plane_address);
+		void Change_block_status_to_cold(Block_Pool_Slot_Type* block, const NVM::FlashMemory::Physical_Page_Address& plane_address);
+
 	protected:
 		PlaneBookKeepingType ****plane_manager;//Keeps track of plane block usage information
 		GC_and_WL_Unit_Base *gc_and_wl_unit;

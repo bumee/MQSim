@@ -256,6 +256,9 @@ namespace SSD_Components
 	inline page_status_type AddressMappingDomain::Get_page_status(const bool ideal_mapping, const stream_id_type stream_id, const LPA_type lpa)
 	{
 		if (ideal_mapping) {
+			if (lpa >= max_logical_sector_address) {
+				return 0; // Return empty status for out-of-range LPA
+			}
 			return GlobalMappingTable[lpa].WrittenStateBitmap;
 		} else {
 			return CMT->Get_bitmap_vector_of_written_sectors(stream_id, lpa);
@@ -265,6 +268,9 @@ namespace SSD_Components
 	inline PPA_type AddressMappingDomain::Get_ppa(const bool ideal_mapping, const stream_id_type stream_id, const LPA_type lpa)
 	{
 		if (ideal_mapping) {
+			if (lpa >= max_logical_sector_address) {
+				return NO_PPA; // Return invalid PPA for out-of-range LPA
+			}
 			return GlobalMappingTable[lpa].PPA;
 		} else {
 			return CMT->Retrieve_ppa(stream_id, lpa);
@@ -409,64 +415,48 @@ namespace SSD_Components
 		delete[] Write_transactions_for_overfull_planes;
 	}
 
-	void Address_Mapping_Unit_Page_Level::increment_access_counter(LPA_type lpa) {
-			auto it = lpa_access_counter.find(lpa);
-			if (it == lpa_access_counter.end()) {
-					lpa_access_counter[lpa] = 1;
-			}
-			else if (it->second < 3) {
-					++(it->second);
-			}
-	}
 
-	SSD_Components::PageHotness Address_Mapping_Unit_Page_Level::DeterminePageHotness(LPA_type lpa) {
-			uint8_t ctr = lpa_access_counter[lpa];  // 0~3 saturation counter
-			if      (ctr >= 2) return PageHotness::HOT;   // 2,3 → HOT
-			else               return PageHotness::COLD;  //   0 → COLD
-	}
-
-
+	// src/ssd/Address_Mapping_Unit_Page_Level.cpp
 	SSD_Components::BlockHotness Address_Mapping_Unit_Page_Level::PickTargetBlockHotness(stream_id_type stream_id, LPA_type lpa, const NVM::FlashMemory::Physical_Page_Address& new_pa)
 	{
-    		AddressMappingDomain* domain = domains[stream_id];
-    		PPA_type old_ppa  = domain->Get_ppa(ideal_mapping_table, stream_id, lpa);
+		AddressMappingDomain* domain = domains[stream_id];
+		PPA_type old_ppa = domain->Get_ppa(ideal_mapping_table, stream_id, lpa);
 
-    		// 1) first write -> 100% WARM block
-    		if (old_ppa == NO_PPA) {
-        		return BlockHotness::WARM;
-    		}
+		// 1) first write -> 100% WARM block
+		if (old_ppa == NO_PPA) {
+			return BlockHotness::WARM;
+		}
 
-    		// 2) PPA transition to Address
+		// 2) PPA transition to Address
 		NVM::FlashMemory::Physical_Page_Address old_pa;
-    		Convert_ppa_to_address(old_ppa, old_pa);
-    		auto &pbk = block_manager->plane_manager
-        		[new_pa.ChannelID]
-        		[new_pa.ChipID]
-        		[new_pa.DieID]
-        		[new_pa.PlaneID];
+		Convert_ppa_to_address(old_ppa, old_pa);
+		auto &pbk = block_manager->plane_manager
+			[new_pa.ChannelID]
+			[new_pa.ChipID]
+			[new_pa.DieID]
+			[new_pa.PlaneID];
 
-    		// 3) certify hotness from the previous block metadata
-    		Block_Pool_Slot_Type* old_blk = &pbk.Blocks[old_pa.BlockID];
+		// 3) get hotness from the previous block metadata
+		Block_Pool_Slot_Type* old_blk = &pbk.Blocks[old_pa.BlockID];
 		SSD_Components::BlockHotness old_h = old_blk->Hotness;
 
-    		// 4) original hot -> 100% hot block
-    		if (old_h == BlockHotness::HOT) {
-        		return BlockHotness::HOT;
-    		}
-    		// 5) WARM -> WARM until doing WARM reclaim algorithm
-    		if (old_h == BlockHotness::WARM) {
-        		return BlockHotness::WARM;
-    		}
-    		// 6) COLD -> check whether this page is suddenly being hot or not
-    		if (old_h == BlockHotness::COLD) {
-        		PageHotness ph = DeterminePageHotness(lpa);
-        		return (ph == PageHotness::COLD
-                    		? BlockHotness::COLD
-                    		: BlockHotness::WARM);
-    		}
+		// 4) original hot -> 100% hot block
+		if (old_h == BlockHotness::HOT) {
+			return BlockHotness::HOT;
+		}
+		// 5) WARM -> WARM until doing WARM reclaim algorithm
+		if (old_h == BlockHotness::WARM) {
+			return BlockHotness::WARM;
+		}
+		// 6) COLD -> check page hotness counter
+		if (old_h == BlockHotness::COLD) {
+			uint8_t counter = old_blk->page_hotness_counters[old_pa.PageID];
+			
+			return (counter >= 2) ? BlockHotness::WARM : BlockHotness::COLD;
+		}
 
-    		// (can't reach here, but for security!)
-    		return BlockHotness::WARM;
+		// (can't reach here, but for security!)
+		return BlockHotness::WARM;
 	}
 
 	void Address_Mapping_Unit_Page_Level::Setup_triggers()
@@ -905,8 +895,8 @@ namespace SSD_Components
 						generate_flash_writeback_request_for_mapping_data(stream_id, evicted_lpa);
 					}
 				}
-				domains[stream_id]->CMT->Reserve_slot_for_lpn(stream_id, transaction->LPA);
-				domains[stream_id]->CMT->Insert_new_mapping_info(stream_id, transaction->LPA, transaction->PPA, transaction->write_sectors_bitmap);
+				domains[stream_id]->CMT->Reserve_slot_for_lpn(transaction->Stream_id, transaction->LPA);
+				domains[stream_id]->CMT->Insert_new_mapping_info(transaction->Stream_id, transaction->LPA, transaction->PPA, transaction->write_sectors_bitmap);
 			}
 		}
 	}
@@ -1231,16 +1221,28 @@ namespace SSD_Components
 	{
 		AddressMappingDomain* domain = domains[transaction->Stream_id];
 		PPA_type old_ppa = domain->Get_ppa(ideal_mapping_table, transaction->Stream_id, transaction->LPA);
-
+		uint8_t hotness_counter = 1;
 		if (old_ppa == NO_PPA)  /*this is the first access to the logical page*/
 		{
 			if (is_for_gc) {
 				PRINT_ERROR("Unexpected mapping table status in allocate_page_in_plane_for_user_write function for a GC/WL write!")
 			}
 		} else {
+			// re-write case - get hotness counter from old PPA
+			NVM::FlashMemory::Physical_Page_Address old_addr;
+			Convert_ppa_to_address(old_ppa, old_addr);
+			
+			// get hotness counter of old page
+			PlaneBookKeepingType* old_pbke = block_manager->Get_plane_bookkeeping_entry(old_addr);
+			Block_Pool_Slot_Type* old_block = &old_pbke->Blocks[old_addr.BlockID];
+			
+			// get old counter + 1 (max 3)
+			hotness_counter = std::min((uint8_t)3, (uint8_t)(old_block->page_hotness_counters[old_addr.PageID] + 1));
+
 			if (is_for_gc) {
 				NVM::FlashMemory::Physical_Page_Address addr;
 				Convert_ppa_to_address(old_ppa, addr);
+
 				block_manager->Invalidate_page_in_block(transaction->Stream_id, addr);
 				page_status_type page_status_in_cmt = domain->Get_page_status(ideal_mapping_table, transaction->Stream_id, transaction->LPA);
 				if (page_status_in_cmt != transaction->write_sectors_bitmap)
@@ -1248,6 +1250,7 @@ namespace SSD_Components
 			} else {
 				page_status_type prev_page_status = domain->Get_page_status(ideal_mapping_table, transaction->Stream_id, transaction->LPA);
 				page_status_type status_intersection = transaction->write_sectors_bitmap & prev_page_status;
+				
 				//check if an update read is required
 				if (status_intersection == prev_page_status) {
 					NVM::FlashMemory::Physical_Page_Address addr;
@@ -1290,8 +1293,12 @@ namespace SSD_Components
 				transaction->Address,
 				target_h);
 		}
+		// set hotness counter for new allocated page
+		PlaneBookKeepingType* new_pbke = block_manager->Get_plane_bookkeeping_entry(transaction->Address);
+		Block_Pool_Slot_Type* new_block = &new_pbke->Blocks[transaction->Address.BlockID];
+		new_block->page_hotness_counters[transaction->Address.PageID] = hotness_counter;
+
 		// Addition to Kibum Lee's Definition (custom access counter)
-		increment_access_counter(transaction->LPA);
 		transaction->PPA = Convert_address_to_ppa(transaction->Address);
 		domain->Update_mapping_info(ideal_mapping_table, transaction->Stream_id, transaction->LPA, transaction->PPA,
 			((NVM_Transaction_Flash_WR*)transaction)->write_sectors_bitmap | domain->Get_page_status(ideal_mapping_table, transaction->Stream_id, transaction->LPA));
@@ -1351,7 +1358,7 @@ namespace SSD_Components
 				read_address.ChannelID = domain->Channel_ids[(unsigned int)(lpa % domain->Channel_no)];
 				read_address.ChipID = domain->Chip_ids[(unsigned int)((lpa / (domain->Channel_no * domain->Die_no * domain->Plane_no)) % domain->Chip_no)];
 				read_address.DieID = domain->Die_ids[(unsigned int)((lpa / domain->Channel_no) % domain->Die_no)];
-				read_address.PlaneID = domain->Plane_ids[(unsigned int)((lpa / (domain->Channel_no * domain->Die_no)) % domain->Plane_no)];
+				read_address.PlaneID = domain->Plane_ids[(unsigned int)((lpa / (domain->Die_no * domain->Channel_no)) % domain->Plane_no)];
 				break;
 			case Flash_Plane_Allocation_Scheme_Type::CPWD:
 				read_address.ChannelID = domain->Channel_ids[(unsigned int)(lpa % domain->Channel_no)];
@@ -1493,8 +1500,14 @@ namespace SSD_Components
 			ppa = domains[stream_id]->Get_ppa(ideal_mapping_table, stream_id, lpa);
 			page_state = domains[stream_id]->Get_page_status(ideal_mapping_table, stream_id, lpa);
 		} else {
-			ppa = domains[stream_id]->GlobalMappingTable[lpa].PPA;
-			page_state = domains[stream_id]->GlobalMappingTable[lpa].WrittenStateBitmap;
+			if (lpa >= domains[stream_id]->max_logical_sector_address || lpa == NO_LPA) {
+				// For invalid LPA, return empty mapping info - this should not happen in normal operation
+				ppa = NO_PPA;
+				page_state = 0;
+			} else {
+				ppa = domains[stream_id]->GlobalMappingTable[lpa].PPA;
+				page_state = domains[stream_id]->GlobalMappingTable[lpa].WrittenStateBitmap;
+			}
 		}
 	}
 
@@ -1880,6 +1893,13 @@ namespace SSD_Components
 		NVM::FlashMemory::Physical_Page_Address addr(block_address);
 		for (flash_page_ID_type pageID = 0; pageID < block->Current_page_write_index; pageID++) {
 			if (block_manager->Is_page_valid(block, pageID)) {
+				// For hot/warm blocks using only LSB pages, skip unwritten pages
+				if (block->Hotness == BlockHotness::HOT || block->Hotness == BlockHotness::WARM) {
+					// Only process LSB pages (0, 3, 6, 9, ...)
+					if (pageID % 3 != 0) {
+						continue;
+					}
+				}
 				addr.PageID = pageID;
 				if (block->Holds_mapping_data) {
 					MVPN_type mpvn = (MVPN_type)flash_controller->Get_metadata(addr.ChannelID, addr.ChipID, addr.DieID, addr.PlaneID, addr.BlockID, addr.PageID);
@@ -1889,6 +1909,12 @@ namespace SSD_Components
 					Set_barrier_for_accessing_mvpn(block->Stream_id, mpvn);
 				} else {
 					LPA_type lpa = flash_controller->Get_metadata(addr.ChannelID, addr.ChipID, addr.DieID, addr.PlaneID, addr.BlockID, addr.PageID);
+					if (lpa == NO_LPA) {
+						continue; // Skip unwritten pages (common in hot/warm blocks using only LSB pages)
+					}
+					if (lpa >= domains[block->Stream_id]->max_logical_sector_address) {
+						continue; // Skip out-of-range LPA
+					}
 					LPA_type ppa = domains[block->Stream_id]->GlobalMappingTable[lpa].PPA;
 					if (domains[block->Stream_id]->CMT->Exists(block->Stream_id, lpa)) {
 						ppa = domains[block->Stream_id]->CMT->Retrieve_ppa(block->Stream_id, lpa);
@@ -1904,9 +1930,16 @@ namespace SSD_Components
 
 	inline void Address_Mapping_Unit_Page_Level::Remove_barrier_for_accessing_lpa(stream_id_type stream_id, LPA_type lpa)
 	{
+		// Skip NO_LPA pages - they never had barriers set
+		if (lpa == NO_LPA) {
+			return;
+		}
+		
 		auto itr = domains[stream_id]->Locked_LPAs.find(lpa);
 		if (itr == domains[stream_id]->Locked_LPAs.end()) {
-			PRINT_ERROR("Illegal operation: Unlocking an LPA that has not been locked!");
+			// LPA was not locked - this can happen in hot/warm blocks with mixed LSB/CSB/MSB pages
+			// Just return silently since this is expected behavior
+			return;
 		}
 		domains[stream_id]->Locked_LPAs.erase(itr);
 

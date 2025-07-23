@@ -72,19 +72,37 @@ namespace SSD_Components
 							NVM_Transaction_Flash_RD* gc_wl_read = NULL;
 							NVM_Transaction_Flash_WR* gc_wl_write = NULL;
 							for (flash_page_ID_type pageID = 0; pageID < block->Current_page_write_index; pageID++) {
+								// For hot/warm blocks using only LSB pages, skip non-LSB pages FIRST
+								if (block->Hotness == BlockHotness::HOT || block->Hotness == BlockHotness::WARM) {
+									// Only process LSB pages (0, 3, 6, 9, ...)
+									if (pageID % 3 != 0) {
+										continue;
+									}
+								}
+								
 								if (_my_instance->block_manager->Is_page_valid(block, pageID)) {
 									Stats::Total_page_movements_for_gc++;
 									gc_wl_candidate_address.PageID = pageID;
+									//std::cout << "Creating GC transaction for Hot/Warm block: pageID=" << pageID << ", hotness=" << (int)block->Hotness << std::endl;
+									
+									// Double-check: get actual LPA from metadata and skip if NO_LPA
+									LPA_type actual_lpa = _my_instance->flash_controller->Get_metadata(gc_wl_candidate_address.ChannelID, gc_wl_candidate_address.ChipID, gc_wl_candidate_address.DieID, gc_wl_candidate_address.PlaneID, gc_wl_candidate_address.BlockID, gc_wl_candidate_address.PageID);
+									if (actual_lpa == NO_LPA) {
+										//std::cout << "Skipping transaction creation for NO_LPA page: " << pageID << std::endl;
+										continue;
+									}
+									
 									if (_my_instance->use_copyback) {
 										gc_wl_write = new NVM_Transaction_Flash_WR(Transaction_Source_Type::GC_WL, block->Stream_id, _my_instance->sector_no_per_page * SECTOR_SIZE_IN_BYTE,
-											NO_LPA, _my_instance->address_mapping_unit->Convert_address_to_ppa(gc_wl_candidate_address), NULL, 0, NULL, 0, INVALID_TIME_STAMP);
+											actual_lpa, _my_instance->address_mapping_unit->Convert_address_to_ppa(gc_wl_candidate_address), NULL, 0, NULL, 0, INVALID_TIME_STAMP);
 										gc_wl_write->ExecutionMode = WriteExecutionModeType::COPYBACK;
 										_my_instance->tsu->Submit_transaction(gc_wl_write);
 									} else {
+										//std::cout << "FOUND IT! GC_Base creating READ transaction for pageID=" << pageID << std::endl;
 										gc_wl_read = new NVM_Transaction_Flash_RD(Transaction_Source_Type::GC_WL, block->Stream_id, _my_instance->sector_no_per_page * SECTOR_SIZE_IN_BYTE,
-											NO_LPA, _my_instance->address_mapping_unit->Convert_address_to_ppa(gc_wl_candidate_address), gc_wl_candidate_address, NULL, 0, NULL, 0, INVALID_TIME_STAMP);
+											actual_lpa, _my_instance->address_mapping_unit->Convert_address_to_ppa(gc_wl_candidate_address), gc_wl_candidate_address, NULL, 0, NULL, 0, INVALID_TIME_STAMP);
 										gc_wl_write = new NVM_Transaction_Flash_WR(Transaction_Source_Type::GC_WL, block->Stream_id, _my_instance->sector_no_per_page * SECTOR_SIZE_IN_BYTE,
-											NO_LPA, NO_PPA, gc_wl_candidate_address, NULL, 0, gc_wl_read, 0, INVALID_TIME_STAMP);
+											actual_lpa, NO_PPA, gc_wl_candidate_address, NULL, 0, gc_wl_read, 0, INVALID_TIME_STAMP);
 										gc_wl_write->ExecutionMode = WriteExecutionModeType::SIMPLE;
 										gc_wl_write->RelatedErase = gc_wl_erase_tr;
 										gc_wl_read->RelatedWrite = gc_wl_write;
@@ -126,6 +144,14 @@ namespace SSD_Components
 						PRINT_ERROR("Inconsistency found when moving a page for GC/WL!")
 					}
 				} else {
+					//std::cout << "GC processing transaction: LPA=" << transaction->LPA << ", PPA=" << transaction->PPA << ", PageID=" << transaction->Address.PageID << std::endl;
+					
+					// Skip pages with NO_LPA (unwritten pages in hot/warm blocks)
+					if (transaction->LPA == NO_LPA) {
+						//std::cout << "Skipping GC transaction with NO_LPA for PageID=" << transaction->Address.PageID << std::endl;
+						break; // Skip this transaction
+					}
+					
 					_my_instance->address_mapping_unit->Get_data_mapping_info_for_gc(transaction->Stream_id, transaction->LPA, ppa, page_status_bitmap);
 					
 					//There has been no write on the page since GC start, and it is still valid
@@ -149,7 +175,7 @@ namespace SSD_Components
 					DEBUG(Simulator->Time() << ": MVPN=" << (MVPN_type)transaction->LPA << " unlocked!!");
 				} else {
 					_my_instance->address_mapping_unit->Remove_barrier_for_accessing_lpa(transaction->Stream_id, transaction->LPA);
-					DEBUG(Simulator->Time() << ": LPA=" << (MVPN_type)transaction->LPA << " unlocked!!");
+					DEBUG(Simulator->Time() << ": LPA=" << transaction->LPA << " unlocked!!");
 				}
 				pbke->Blocks[((NVM_Transaction_Flash_WR*)transaction)->RelatedErase->Address.BlockID].Erase_transaction->Page_movement_activities.remove((NVM_Transaction_Flash_WR*)transaction);
 				if(pbke->Blocks[((NVM_Transaction_Flash_WR*)transaction)->RelatedErase->Address.BlockID].Erase_transaction->Page_movement_activities.size() == 0){
@@ -288,18 +314,33 @@ namespace SSD_Components
 				NVM_Transaction_Flash_WR* wl_write = NULL;
 				for (flash_page_ID_type pageID = 0; pageID < block->Current_page_write_index; pageID++) {
 					if (block_manager->Is_page_valid(block, pageID)) {
-						Stats::Total_page_movements_for_gc;
+						// For hot/warm blocks using only LSB pages, skip non-LSB pages
+						if (block->Hotness == BlockHotness::HOT || block->Hotness == BlockHotness::WARM) {
+							// Only process LSB pages (0, 3, 6, 9, ...)
+							if (pageID % 3 != 0) {
+								continue;
+							}
+						}
+						
+						Stats::Total_page_movements_for_gc++;
 						wl_candidate_address.PageID = pageID;
+						
+						// Get actual LPA from metadata and skip if NO_LPA
+						LPA_type actual_lpa = flash_controller->Get_metadata(wl_candidate_address.ChannelID, wl_candidate_address.ChipID, wl_candidate_address.DieID, wl_candidate_address.PlaneID, wl_candidate_address.BlockID, wl_candidate_address.PageID);
+						if (actual_lpa == NO_LPA) {
+							continue;
+						}
+						
 						if (use_copyback) {
 							wl_write = new NVM_Transaction_Flash_WR(Transaction_Source_Type::GC_WL, block->Stream_id, sector_no_per_page * SECTOR_SIZE_IN_BYTE,
-								NO_LPA, address_mapping_unit->Convert_address_to_ppa(wl_candidate_address), NULL, 0, NULL, 0, INVALID_TIME_STAMP);
+								actual_lpa, address_mapping_unit->Convert_address_to_ppa(wl_candidate_address), NULL, 0, NULL, 0, INVALID_TIME_STAMP);
 							wl_write->ExecutionMode = WriteExecutionModeType::COPYBACK;
 							tsu->Submit_transaction(wl_write);
 						} else {
 							wl_read = new NVM_Transaction_Flash_RD(Transaction_Source_Type::GC_WL, block->Stream_id, sector_no_per_page * SECTOR_SIZE_IN_BYTE,
-								NO_LPA, address_mapping_unit->Convert_address_to_ppa(wl_candidate_address), wl_candidate_address, NULL, 0, NULL, 0, INVALID_TIME_STAMP);
+								actual_lpa, address_mapping_unit->Convert_address_to_ppa(wl_candidate_address), wl_candidate_address, NULL, 0, NULL, 0, INVALID_TIME_STAMP);
 							wl_write = new NVM_Transaction_Flash_WR(Transaction_Source_Type::GC_WL, block->Stream_id, sector_no_per_page * SECTOR_SIZE_IN_BYTE,
-								NO_LPA, NO_PPA, wl_candidate_address, NULL, 0, wl_read, 0, INVALID_TIME_STAMP);
+								actual_lpa, NO_PPA, wl_candidate_address, NULL, 0, wl_read, 0, INVALID_TIME_STAMP);
 							wl_write->ExecutionMode = WriteExecutionModeType::SIMPLE;
 							wl_write->RelatedErase = wl_erase_tr;
 							wl_read->RelatedWrite = wl_write;

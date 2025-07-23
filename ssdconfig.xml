@@ -5,7 +5,7 @@
 		<PCIe_Lane_Count>4</PCIe_Lane_Count>
 		<SATA_Processing_Delay>400000</SATA_Processing_Delay>
 		<Enable_ResponseTime_Logging>false</Enable_ResponseTime_Logging>
-		<ResponseTime_Logging_Period_Length>1000000</ResponseTime_Logging_Period_Length>
+		<ResponseTime_Logging_Period_Length>100000</ResponseTime_Logging_Period_Length>
 	</Host_Parameter_Set>
 	<Device_Parameter_Set>
 		<Seed>321</Seed>

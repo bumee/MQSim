@@ -12,15 +12,17 @@ namespace SSD_Components
 		block_no_per_plane(block_no_per_plane), pages_no_per_block(page_no_per_block)
 	{
 		plane_manager = new PlaneBookKeepingType***[channel_count];
+		
+
 		float hot_ratio  = 0.10f;   // 예: 10%를 hot
 		float warm_ratio = 0.20f;   // 예: 20%를 warm
 
 		unsigned int blocks_per_plane = block_no_per_plane;
-		std::cout << "blocks_per_plane: " << blocks_per_plane << std::endl;
+		//std::cout << "blocks_per_plane: " << blocks_per_plane << std::endl;
 
 		unsigned int hot_count  = static_cast<unsigned int>(blocks_per_plane * hot_ratio);
 		unsigned int warm_count = static_cast<unsigned int>(blocks_per_plane * warm_ratio);
-		std::cout << "hot_count: " << hot_count << " warm_count: " << warm_count << std::endl;
+		//std::cout << "hot_count: " << hot_count << " warm_count: " << warm_count << std::endl;
 		for (unsigned int channelID = 0; channelID < channel_count; channelID++) {
 			plane_manager[channelID] = new PlaneBookKeepingType**[chip_no_per_channel];
 			for (unsigned int chipID = 0; chipID < chip_no_per_channel; chipID++) {
@@ -49,6 +51,11 @@ namespace SSD_Components
 							plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].Erase_transaction = NULL;
 							plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].Ongoing_user_program_count = 0;
 							plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].Ongoing_user_read_count = 0;
+							plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].Last_access_time = 0;
+
+							plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].page_hotness_counters = new uint8_t[pages_no_per_block];
+           					memset(plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].page_hotness_counters, 0, pages_no_per_block * sizeof(uint8_t));
+
 							Block_Pool_Slot_Type::Page_vector_size = pages_no_per_block / (sizeof(uint64_t) * 8) + (pages_no_per_block % (sizeof(uint64_t) * 8) == 0 ? 0 : 1);
 							plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].Invalid_page_bitmap = new uint64_t[Block_Pool_Slot_Type::Page_vector_size];
 							for (unsigned int i = 0; i < Block_Pool_Slot_Type::Page_vector_size; i++) {
@@ -100,6 +107,7 @@ namespace SSD_Components
 					for (unsigned int plane_id = 0; plane_id < plane_no_per_die; plane_id++) {
 						for (unsigned int blockID = 0; blockID < block_no_per_plane; blockID++) {
 							delete[] plane_manager[channel_id][chip_id][die_id][plane_id].Blocks[blockID].Invalid_page_bitmap;
+							delete[] plane_manager[channel_id][chip_id][die_id][plane_id].Blocks[blockID].page_hotness_counters; // addition
 						}
 						delete[] plane_manager[channel_id][chip_id][die_id][plane_id].Blocks;
 						delete[] plane_manager[channel_id][chip_id][die_id][plane_id].GC_hot_wf;
@@ -135,6 +143,67 @@ namespace SSD_Components
 		Stream_id = NO_STREAM;
 		Holds_mapping_data = false;
 		Erase_transaction = NULL;
+		lsb_page_written_count = 0;  // Initialize LSB page count
+	}
+
+	void Flash_Block_Manager_Base::Change_block_status_to_hot(Block_Pool_Slot_Type* block, const NVM::FlashMemory::Physical_Page_Address& plane_address)
+	{
+		PlaneBookKeepingType* pbke = &plane_manager[plane_address.ChannelID][plane_address.ChipID][plane_address.DieID][plane_address.PlaneID];
+		
+		// remove from existing write frontier (if this block was a write frontier)
+		for (stream_id_type stream_id = 0; stream_id < total_concurrent_streams_no; stream_id++) {
+			if (pbke->Data_warm_wf[stream_id] == block) {
+				// assign new warm block
+				pbke->Data_warm_wf[stream_id] = pbke->Get_a_free_block(stream_id, false, BlockHotness::WARM);
+				break;
+			}
+		}
+		
+		// change block status
+		block->Hotness = BlockHotness::HOT;
+		
+		// if needed, add to hot pool (currently just changing status)
+	}
+
+	void Flash_Block_Manager_Base::Change_block_status_to_cold(Block_Pool_Slot_Type* block, const NVM::FlashMemory::Physical_Page_Address& plane_address)
+	{
+		PlaneBookKeepingType* pbke = &plane_manager[plane_address.ChannelID][plane_address.ChipID][plane_address.DieID][plane_address.PlaneID];
+		
+		// remove from existing write frontier (if this block was a write frontier)
+		for (stream_id_type stream_id = 0; stream_id < total_concurrent_streams_no; stream_id++) {
+			if (pbke->Data_warm_wf[stream_id] == block) {
+				// assign new warm block
+				pbke->Data_warm_wf[stream_id] = pbke->Get_a_free_block(stream_id, false, BlockHotness::WARM);
+				break;
+			}
+		}
+		
+		// change block status
+		block->Hotness = BlockHotness::COLD;
+	}
+
+	void PlaneBookKeepingType::Move_block_to_hot_pool(Block_Pool_Slot_Type* block) {
+		for (auto it = Free_warm_block_pool.begin(); it != Free_warm_block_pool.end(); ++it) {
+			if (it->second == block) {
+				Free_warm_block_pool.erase(it);
+				break;
+			}
+		}
+		
+		block->Hotness = BlockHotness::HOT;
+		Free_hot_block_pool.emplace(block->Erase_count, block);
+	}
+
+	void PlaneBookKeepingType::Move_block_to_cold_pool(Block_Pool_Slot_Type* block) {
+		for (auto it = Free_warm_block_pool.begin(); it != Free_warm_block_pool.end(); ++it) {
+			if (it->second == block) {
+				Free_warm_block_pool.erase(it);
+				break;
+			}
+		}
+		
+		block->Hotness = BlockHotness::COLD;
+		Free_cold_block_pool.emplace(block->Erase_count, block);
 	}
 
 	Block_Pool_Slot_Type* PlaneBookKeepingType::Get_a_free_block(stream_id_type stream_id, bool for_mapping_data, SSD_Components::BlockHotness blockhotness)
@@ -218,8 +287,8 @@ namespace SSD_Components
 	void PlaneBookKeepingType::Check_bookkeeping_correctness(const NVM::FlashMemory::Physical_Page_Address& plane_address)
 	{
 		if (Total_pages_count !=  Free_pages_count + Valid_pages_count + Invalid_pages_count) {
-			std::cout << "Free pages: " << Free_pages_count << " Valid pages: " << Valid_pages_count <<" Invalid_pages: " << Invalid_pages_count << std::endl;
-			std::cout << "Total pages: " << Total_pages_count << std::endl;
+					//std::cout << "Free pages: " << Free_pages_count << " Valid pages: " << Valid_pages_count <<" Invalid_pages: " << Invalid_pages_count << std::endl;
+		//std::cout << "Total pages: " << Total_pages_count << std::endl;
 			PRINT_ERROR("Inconsistent status in the plane bookkeeping record!")
 		}
 		if (Free_pages_count == 0) {

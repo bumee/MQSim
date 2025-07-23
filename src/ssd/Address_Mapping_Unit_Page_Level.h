@@ -162,8 +162,6 @@ namespace SSD_Components
 		PPA_type Convert_address_to_ppa(const NVM::FlashMemory::Physical_Page_Address& pageAddress);
 
 		SSD_Components::BlockHotness PickTargetBlockHotness(stream_id_type stream_id, LPA_type lpa, const NVM::FlashMemory::Physical_Page_Address& new_pa);
-		void increment_access_counter(LPA_type lpa);
-                SSD_Components::PageHotness DeterminePageHotness(LPA_type lpa);
 
 		void Set_barrier_for_accessing_physical_block(const NVM::FlashMemory::Physical_Page_Address& block_address);
 		void Set_barrier_for_accessing_lpa(stream_id_type stream_id, LPA_type lpa);

@@ -19,74 +19,75 @@ namespace SSD_Components
 
 	void Flash_Block_Manager::Allocate_block_and_page_in_plane_for_user_write(const stream_id_type stream_id, NVM::FlashMemory::Physical_Page_Address& page_address, BlockHotness hotness)
 	{
-		// 1) Locate plane record
 		PlaneBookKeepingType &pbk = plane_manager[page_address.ChannelID][page_address.ChipID][page_address.DieID][page_address.PlaneID];
-
-		// 2) Select the appropriate write frontier based on hotness
 		Block_Pool_Slot_Type *frontier = nullptr;
-		switch (hotness) {
-			case BlockHotness::HOT:
-				frontier = pbk.Data_hot_wf[stream_id];
-				break;
-			case BlockHotness::WARM:
-				frontier = pbk.Data_warm_wf[stream_id];
-				break;
-			case BlockHotness::COLD:
-				frontier = pbk.Data_cold_wf[stream_id];
-				break;
+
+		if (hotness == BlockHotness::HOT || hotness == BlockHotness::WARM) {
+			// HOT/WARM block handling - only use LSB pages
+			frontier = (hotness == BlockHotness::HOT) ? pbk.Data_hot_wf[stream_id] : pbk.Data_warm_wf[stream_id];
+			
+			// verify LSB page usage
+			if (frontier->lsb_page_written_count != frontier->Current_page_write_index) {
+				PRINT_ERROR("Inconsistency in LSB page count detected!");
+			}
+			
+			// if all LSB pages are used, allocate a new block
+			if (frontier->lsb_page_written_count >= pages_no_per_block / 3) {
+				Block_Pool_Slot_Type *new_frontier = pbk.Get_a_free_block(stream_id, false, hotness);
+				if (hotness == BlockHotness::HOT) {
+					pbk.Data_hot_wf[stream_id] = new_frontier;
+				} else {
+					pbk.Data_warm_wf[stream_id] = new_frontier;
+				}
+				frontier = new_frontier;
+				gc_and_wl_unit->Check_gc_required(pbk.Get_free_block_pool_size(), page_address);
+			}
+
+			// assign LSB pages (0, 3, 6, ...)
+			page_address.BlockID = frontier->BlockID;
+			page_address.PageID = frontier->Current_page_write_index * 3;
+			
+			// update LSB page count
+			frontier->Current_page_write_index++;
+			frontier->lsb_page_written_count++;
+			
+			// additional verification
+			if (page_address.PageID >= pages_no_per_block) {
+				PRINT_ERROR("Invalid LSB page allocation detected!");
+			}
+			if (page_address.PageID % 3 != 0) {
+				PRINT_ERROR("Non-LSB page allocated for hot/warm block!");
+			}
+			
+		} else {
+			// COLD block handling - use all pages sequentially
+			frontier = pbk.Data_cold_wf[stream_id];
+			
+			// if the block is full, allocate a new block
+			if (frontier->Current_page_write_index == pages_no_per_block) {
+				Block_Pool_Slot_Type *new_frontier = pbk.Get_a_free_block(stream_id, false, hotness);
+				pbk.Data_cold_wf[stream_id] = new_frontier;
+				frontier = new_frontier;
+				gc_and_wl_unit->Check_gc_required(pbk.Get_free_block_pool_size(), page_address);
+			}
+
+			// sequentially
+			page_address.BlockID = frontier->BlockID;
+			page_address.PageID = frontier->Current_page_write_index;
+			frontier->Current_page_write_index++;
+			
+			// track LSB page count for COLD block
+			if (page_address.PageID % 3 == 0) {
+				frontier->lsb_page_written_count++;
+			}
 		}
 
-		// 3) Update bookkeeping counts
+		// update common bookkeeping
 		pbk.Valid_pages_count++;
 		pbk.Free_pages_count--;
-
-		// 4) Assign PPA
-		page_address.BlockID = frontier->BlockID;
-		
-		// For hot/warm blocks, only use LSB pages
-		if (hotness == BlockHotness::HOT || hotness == BlockHotness::WARM) {
-			// Skip to next LSB page
-			while (frontier->Current_page_write_index < pages_no_per_block) {
-				flash_page_ID_type pageID = frontier->Current_page_write_index;
-				// 3 pages per block
-				if (pageID % 3 == 0) {
-					break;
-				}
-				frontier->Current_page_write_index++;
-			}
-		}
-		
-		page_address.PageID = frontier->Current_page_write_index++;
 		program_transaction_issued(page_address);
-
-		// 5) If block is full or no more LSB pages available, allocate a new frontier from same pool
-		bool need_new_block = false;
-		if (hotness == BlockHotness::HOT || hotness == BlockHotness::WARM) {
-			// For hot/warm blocks, check if we've used all LSB pages
-			need_new_block = (frontier->Current_page_write_index >= pages_no_per_block);
-		} else {
-			// For cold blocks, use normal full block check
-			need_new_block = (frontier->Current_page_write_index == pages_no_per_block);
-		}
-
-		if (need_new_block) {
-			Block_Pool_Slot_Type *new_frontier = pbk.Get_a_free_block(stream_id, false, hotness);
-			switch (hotness) {
-				case BlockHotness::HOT:
-					pbk.Data_hot_wf[stream_id] = new_frontier;
-					break;
-				case BlockHotness::WARM:
-					pbk.Data_warm_wf[stream_id] = new_frontier;
-					break;
-				case BlockHotness::COLD:
-					pbk.Data_cold_wf[stream_id] = new_frontier;
-					break;
-			}
-			gc_and_wl_unit->Check_gc_required(pbk.Get_free_block_pool_size(), page_address);
-		}
-
-		// 6) Sanity check
 		pbk.Check_bookkeeping_correctness(page_address);
+		pbk.Blocks[frontier->BlockID].Last_access_time = Simulator->Time();
 	}
 
 	void Flash_Block_Manager::Allocate_block_and_page_in_plane_for_gc_write(const stream_id_type stream_id, NVM::FlashMemory::Physical_Page_Address& page_address, SSD_Components::BlockHotness hotness)
@@ -233,7 +234,13 @@ namespace SSD_Components
 		PlaneBookKeepingType* plane_record = &plane_manager[page_address.ChannelID][page_address.ChipID][page_address.DieID][page_address.PlaneID];
 		plane_record->Invalid_pages_count++;
 		plane_record->Valid_pages_count--;
-		if (plane_record->Blocks[page_address.BlockID].Stream_id != stream_id) {
+		if (plane_record->Blocks[page_address.BlockID].Stream_id != stream_id && 
+			plane_record->Blocks[page_address.BlockID].Stream_id != NO_STREAM) {
+			// std::cout << "Block Stream_id: " << plane_record->Blocks[page_address.BlockID].Stream_id 
+			// 		  << ", Transaction Stream_id: " << stream_id 
+			// 		  << ", Block Hotness: " << (int)plane_record->Blocks[page_address.BlockID].Hotness
+			// 		  << ", BlockID: " << page_address.BlockID 
+			// 		  << ", PageID: " << page_address.PageID << std::endl;
 			PRINT_ERROR("Inconsistent status in the Invalidate_page_in_block function! The accessed block is not allocated to stream " << stream_id)
 		}
 		plane_record->Blocks[page_address.BlockID].Invalid_page_count++;
@@ -245,7 +252,8 @@ namespace SSD_Components
 		PlaneBookKeepingType* plane_record = &plane_manager[page_address.ChannelID][page_address.ChipID][page_address.DieID][page_address.PlaneID];
 		plane_record->Invalid_pages_count++;
 		plane_record->Valid_pages_count--;
-		if (plane_record->Blocks[page_address.BlockID].Stream_id != stream_id) {
+		if (plane_record->Blocks[page_address.BlockID].Stream_id != stream_id && 
+			plane_record->Blocks[page_address.BlockID].Stream_id != NO_STREAM) {
 			PRINT_ERROR("Inconsistent status in the Invalidate_page_in_block function! The accessed block is not allocated to stream " << stream_id)
 		}
 		plane_record->Blocks[page_address.BlockID].Invalid_page_count++;

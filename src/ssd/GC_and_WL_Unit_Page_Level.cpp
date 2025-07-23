@@ -19,6 +19,7 @@ namespace SSD_Components
 			dynamic_wearleveling_enabled, static_wearleveling_enabled, static_wearleveling_threshold, seed)
 	{
 		rga_set_size = (unsigned int)log2(block_no_per_plane);
+		//std::cout << "GC_Page_Level constructor: flash_controller = " << flash_controller << std::endl;
 	}
 	
 	bool GC_and_WL_Unit_Page_Level::GC_is_in_urgent_mode(const NVM::FlashMemory::Flash_Chip* chip)
@@ -40,9 +41,60 @@ namespace SSD_Components
 		return false;
 	}
 
+	void GC_and_WL_Unit_Page_Level::Check_warm_pool_status(const NVM::FlashMemory::Physical_Page_Address& plane_address)
+	{
+		PlaneBookKeepingType* pbke = block_manager->Get_plane_bookkeeping_entry(plane_address);
+		sim_time_type current_time = Simulator->Time();
+		
+		for (flash_block_ID_type block_id = 0; block_id < block_no_per_plane; block_id++) {
+			Block_Pool_Slot_Type* block = &pbke->Blocks[block_id];
+			
+			if (block->Hotness == BlockHotness::WARM) {
+				// check last write time
+				if (current_time - block->Last_access_time < WARM_TO_HOT_THRESHOLD_TIME) {
+					block_manager->Change_block_status_to_hot(block, plane_address);
+					continue;
+				}
+				
+				// if all LSB pages are used, move to cold pool
+				if (block->lsb_page_written_count >= this->pages_no_per_block / 3) {
+					block_manager->Change_block_status_to_cold(block, plane_address);
+					continue;
+				}
+				
+				// check page-level hotness (use Block_Pool_Slot_Type internal data)
+				int hot_pages = 0;
+				int total_valid_pages = 0;
+				
+				for (flash_page_ID_type page_id = 0; page_id < block->Current_page_write_index; page_id++) {
+					if (!block_manager->Is_page_valid(block, page_id)) continue;
+					
+					if (block->page_hotness_counters[page_id] >= 2) {  // HOT threshold
+						hot_pages++;
+					}
+					total_valid_pages++;
+				}
+				
+				// determine hotness ratio
+				if (total_valid_pages > 0 && (hot_pages / (double)total_valid_pages) > HOT_RATIO_THRESHOLD) {
+					block_manager->Change_block_status_to_hot(block, plane_address);
+				} else {
+					block_manager->Change_block_status_to_cold(block, plane_address);
+				}
+			}
+		}
+	}
+
 	void GC_and_WL_Unit_Page_Level::Check_gc_required(const unsigned int free_block_pool_size, const NVM::FlashMemory::Physical_Page_Address& plane_address)
 	{
-		std::cout << "free_block_pool_size: " << free_block_pool_size << ", block_pool_gc_threshold: " << block_pool_gc_threshold << std::endl;
+		//std::cout << "free_block_pool_size: " << free_block_pool_size << ", block_pool_gc_threshold: " << block_pool_gc_threshold << std::endl;
+		// verify warm pool status	
+		sim_time_type current_time = Simulator->Time();
+	
+		if (current_time - last_warm_pool_check_time >= WARM_POOL_CHECK_INTERVAL) {
+			Check_warm_pool_status(plane_address);
+			last_warm_pool_check_time = current_time;
+		}
 		if (free_block_pool_size < block_pool_gc_threshold) {
 			flash_block_ID_type gc_candidate_block_id = block_manager->Get_coldest_block_id(plane_address);
 			PlaneBookKeepingType* pbke = block_manager->Get_plane_bookkeeping_entry(plane_address);
@@ -140,24 +192,24 @@ namespace SSD_Components
 			gc_candidate_address.BlockID = gc_candidate_block_id;
 			Block_Pool_Slot_Type* block = &pbke->Blocks[gc_candidate_block_id];
 
-			std::cout << "block->Current_page_write_index: " << block->Current_page_write_index
-				<< ", block->Invalid_page_count: " << block->Invalid_page_count
-				<< ", block->Hotness: ";
-			switch (block->Hotness) {
-				case SSD_Components::BlockHotness::HOT:
-					std::cout << "HOT";
-					break;
-				case SSD_Components::BlockHotness::WARM:
-					std::cout << "WARM";
-					break;
-				case SSD_Components::BlockHotness::COLD:
-					std::cout << "COLD";
-					break;
-				default:
-					std::cout << "UNKNOWN";
-					break;
-			}
-			std::cout << std::endl;
+			//std::cout << "block->Current_page_write_index: " << block->Current_page_write_index
+			//	<< ", block->Invalid_page_count: " << block->Invalid_page_count
+			//	<< ", block->Hotness: ";
+			//switch (block->Hotness) {
+			//	case SSD_Components::BlockHotness::HOT:
+			//		std::cout << "HOT";
+			//		break;
+			//	case SSD_Components::BlockHotness::WARM:
+			//		std::cout << "WARM";
+			//		break;
+			//	case SSD_Components::BlockHotness::COLD:
+			//		std::cout << "COLD";
+			//		break;
+			//	default:
+			//		std::cout << "UNKNOWN";
+			//		break;
+			//}
+			//std::cout << std::endl;
 
 			//No invalid page to erase
 			if (block->Current_page_write_index == 0 || block->Invalid_page_count == 0) {
@@ -180,15 +232,27 @@ namespace SSD_Components
 					NVM_Transaction_Flash_RD* gc_read = NULL;
 					NVM_Transaction_Flash_WR* gc_write = NULL;
 					for (flash_page_ID_type pageID = 0; pageID < block->Current_page_write_index; pageID++) {
+						// For hot/warm blocks using only LSB pages, skip non-LSB pages FIRST
+						if (block->Hotness == BlockHotness::HOT || block->Hotness == BlockHotness::WARM) {
+							// Only process LSB pages (0, 3, 6, 9, ...)
+							if (pageID % 3 != 0) {
+								continue;
+							}
+						}
+						
 						if (block_manager->Is_page_valid(block, pageID)) {
 							Stats::Total_page_movements_for_gc++;
 							gc_candidate_address.PageID = pageID;
+							
+							//std::cout << "GC_Page_Level: Creating GC transaction for pageID=" << pageID << ", hotness=" << (int)block->Hotness << std::endl;
+							
 							if (use_copyback) {
 								gc_write = new NVM_Transaction_Flash_WR(Transaction_Source_Type::GC_WL, block->Stream_id, sector_no_per_page * SECTOR_SIZE_IN_BYTE,
 									NO_LPA, address_mapping_unit->Convert_address_to_ppa(gc_candidate_address), NULL, 0, NULL, 0, INVALID_TIME_STAMP);
 								gc_write->ExecutionMode = WriteExecutionModeType::COPYBACK;
 								tsu->Submit_transaction(gc_write);
 							} else {
+								//std::cout << "FOUND IT! GC_Page_Level creating READ transaction for pageID=" << pageID << std::endl;
 								gc_read = new NVM_Transaction_Flash_RD(Transaction_Source_Type::GC_WL, block->Stream_id, sector_no_per_page * SECTOR_SIZE_IN_BYTE,
 									NO_LPA, address_mapping_unit->Convert_address_to_ppa(gc_candidate_address), gc_candidate_address, NULL, 0, NULL, 0, INVALID_TIME_STAMP);
 								gc_write = new NVM_Transaction_Flash_WR(Transaction_Source_Type::GC_WL, block->Stream_id, sector_no_per_page * SECTOR_SIZE_IN_BYTE,

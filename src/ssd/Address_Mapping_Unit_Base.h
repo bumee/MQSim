@@ -45,10 +45,6 @@ namespace SSD_Components
 			double Overprovisioning_ratio, CMT_Sharing_Mode sharing_mode = CMT_Sharing_Mode::SHARED, bool fold_large_addresses = true);
 		virtual ~Address_Mapping_Unit_Base();
 
-		// declare access counter map for lpa access freq
-                std::unordered_map<LPA_type, uint8_t> lpa_access_counter;
-		virtual void increment_access_counter(LPA_type lpa) = 0;
-                virtual SSD_Components::PageHotness DeterminePageHotness(LPA_type lpa) = 0;
 
 		//Functions used for preconditioning
 		virtual void Allocate_address_for_preconditioning(const stream_id_type stream_id, std::map<LPA_type, page_status_type>& lpa_list, std::vector<double>& steady_state_distribution) = 0;

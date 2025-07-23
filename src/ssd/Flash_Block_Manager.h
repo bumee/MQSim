@@ -26,7 +26,6 @@ namespace SSD_Components
 		unsigned int Get_pool_size(const NVM::FlashMemory::Physical_Page_Address& plane_address);
 
 	private:
-		std::unordered_map<LPA_type, uint8_t> lpa_access_counter;
 	};
 }
 

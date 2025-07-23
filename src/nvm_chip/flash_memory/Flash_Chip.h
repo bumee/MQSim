@@ -89,15 +89,11 @@ namespace NVM
 				if (flash_technology == Flash_Technology_Type::MLC) {
 					latencyType = pageID % 2;
 				} else if (flash_technology == Flash_Technology_Type::TLC) {
-					// decide LSB/CSB/MSB 
-					unsigned int pages_per_third = page_no_per_block / 3;
-					if (pageID < pages_per_third) {
-						latencyType = 0; // LSB
-					} else if (pageID < 2 * pages_per_third) {
-						latencyType = 1; // CSB
-					} else {
-						latencyType = 2; // MSB
-					}
+					// decide LSB/CSB/MSB based on page ID modulo 3
+					// LSB: 0, 3, 6, 9, ... (pageID % 3 == 0)
+					// CSB: 1, 4, 7, 10, ... (pageID % 3 == 1)  
+					// MSB: 2, 5, 8, 11, ... (pageID % 3 == 2)
+					latencyType = pageID % 3;
 				}
 				
 				switch (CMDCode)

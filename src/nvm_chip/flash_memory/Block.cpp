@@ -7,7 +7,7 @@ namespace NVM
 		Block::Block(unsigned int PagesNoPerBlock, flash_block_ID_type BlockID)
 		{
 			ID = BlockID;
-			Pages = new Page[PagesNoPerBlock];
+			Pages = new Page[PagesNoPerBlock + 1];
 		}
 
 		Block::~Block()
