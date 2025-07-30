@@ -89,11 +89,8 @@ namespace NVM
 				if (flash_technology == Flash_Technology_Type::MLC) {
 					latencyType = pageID % 2;
 				} else if (flash_technology == Flash_Technology_Type::TLC) {
-					// decide LSB/CSB/MSB based on page ID modulo 3
-					// LSB: 0, 3, 6, 9, ... (pageID % 3 == 0)
-					// CSB: 1, 4, 7, 10, ... (pageID % 3 == 1)  
-					// MSB: 2, 5, 8, 11, ... (pageID % 3 == 2)
-					latencyType = pageID % 3;
+					//From: Yaakobi et al., "Characterization and Error-Correcting Codes for TLC Flash Memories", ICNC 2012
+					latencyType = (pageID <= 5) ? 0 : ((pageID <= 7) ? 1 : (((pageID - 8) >> 1) % 3));
 				}
 				
 				switch (CMDCode)

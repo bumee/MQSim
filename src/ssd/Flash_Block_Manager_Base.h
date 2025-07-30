@@ -13,6 +13,13 @@
 
 namespace SSD_Components
 {
+    // Helper function to determine if a page is LSB based on physical characteristics
+    inline bool is_lsb_page(flash_page_ID_type pageID) {
+        if (pageID <= 5) return true;  // First 6 pages are LSB
+        if (pageID <= 7) return false; // Pages 6-7 are CSB
+        return (((pageID - 8) >> 1) % 3) == 0; // For remaining pages, every third page is LSB
+    }
+
 #define All_VALID_PAGE 0x0000000000000000ULL
 	class GC_and_WL_Unit_Base;
 	/*
@@ -48,7 +55,7 @@ namespace SSD_Components
 		bool Hot_block = false;//Used for hot/cold separation mentioned in the "On the necessity of hot and cold data identification to reduce the write amplification in flash-based SSDs", Perf. Eval., 2014.
 		int Ongoing_user_read_count;
 		int Ongoing_user_program_count;
-		void Erase();
+		void Erase(BlockHotness hotness);
 		BlockHotness Hotness;
 		sim_time_type Last_access_time;
 		uint8_t* page_hotness_counters;
@@ -62,6 +69,7 @@ namespace SSD_Components
 		unsigned int Free_pages_count;
 		unsigned int Valid_pages_count;
 		unsigned int Invalid_pages_count;
+		unsigned int pages_no_per_block;
 		Block_Pool_Slot_Type* Blocks;
 		// Free block pool customizing
 		std::multimap<unsigned int, Block_Pool_Slot_Type*> Free_hot_block_pool;
@@ -119,6 +127,8 @@ namespace SSD_Components
 
 		void Change_block_status_to_hot(Block_Pool_Slot_Type* block, const NVM::FlashMemory::Physical_Page_Address& plane_address);
 		void Change_block_status_to_cold(Block_Pool_Slot_Type* block, const NVM::FlashMemory::Physical_Page_Address& plane_address);
+		void Change_block_status_to_warm(Block_Pool_Slot_Type* block, const NVM::FlashMemory::Physical_Page_Address& plane_address);
+		void ResetAllPageHotnessCounters();
 
 	protected:
 		PlaneBookKeepingType ****plane_manager;//Keeps track of plane block usage information

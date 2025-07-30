@@ -45,22 +45,17 @@ namespace SSD_Components
 	{
 		PlaneBookKeepingType* pbke = block_manager->Get_plane_bookkeeping_entry(plane_address);
 		sim_time_type current_time = Simulator->Time();
+		//block_manager->ResetAllPageHotnessCounters();
 		
 		for (flash_block_ID_type block_id = 0; block_id < block_no_per_plane; block_id++) {
 			Block_Pool_Slot_Type* block = &pbke->Blocks[block_id];
 			
 			if (block->Hotness == BlockHotness::WARM) {
 				// check last write time
-				if (current_time - block->Last_access_time < WARM_TO_HOT_THRESHOLD_TIME) {
-					block_manager->Change_block_status_to_hot(block, plane_address);
-					continue;
-				}
-				
-				// if all LSB pages are used, move to cold pool
-				if (block->lsb_page_written_count >= this->pages_no_per_block / 3) {
-					block_manager->Change_block_status_to_cold(block, plane_address);
-					continue;
-				}
+				// if (current_time - block->Last_access_time < WARM_TO_HOT_THRESHOLD_TIME) {
+				// 	block_manager->Change_block_status_to_hot(block, plane_address);
+				// 	continue;
+				// }
 				
 				// check page-level hotness (use Block_Pool_Slot_Type internal data)
 				int hot_pages = 0;
@@ -91,10 +86,6 @@ namespace SSD_Components
 		// verify warm pool status	
 		sim_time_type current_time = Simulator->Time();
 	
-		if (current_time - last_warm_pool_check_time >= WARM_POOL_CHECK_INTERVAL) {
-			Check_warm_pool_status(plane_address);
-			last_warm_pool_check_time = current_time;
-		}
 		if (free_block_pool_size < block_pool_gc_threshold) {
 			flash_block_ID_type gc_candidate_block_id = block_manager->Get_coldest_block_id(plane_address);
 			PlaneBookKeepingType* pbke = block_manager->Get_plane_bookkeeping_entry(plane_address);
@@ -227,6 +218,21 @@ namespace SSD_Components
 				tsu->Prepare_for_transaction_submit();
 
 				NVM_Transaction_Flash_ER* gc_erase_tr = new NVM_Transaction_Flash_ER(Transaction_Source_Type::GC_WL, pbke->Blocks[gc_candidate_block_id].Stream_id, gc_candidate_address);
+				
+				// Check if HOT block should be changed to WARM based on valid page ratio
+				if (block->Hotness == BlockHotness::HOT) {
+					unsigned int valid_pages = block->Current_page_write_index - block->Invalid_page_count;
+					unsigned int total_pages = block->Current_page_write_index;
+					double valid_ratio = (double)valid_pages / total_pages;
+					
+					// If HOT block has high valid page ratio (> 50%), change to WARM
+					if (valid_ratio > 0.5) {
+						std::cout << "HOT block " << gc_candidate_block_id << " has high valid ratio (" 
+								  << valid_ratio * 100 << "%), changing to WARM" << std::endl;
+						block_manager->Change_block_status_to_warm(block, plane_address);
+					}
+				}
+				
 				//If there are some valid pages in block, then prepare flash transactions for page movement
 				if (block->Current_page_write_index - block->Invalid_page_count > 0) {
 					NVM_Transaction_Flash_RD* gc_read = NULL;
@@ -234,8 +240,8 @@ namespace SSD_Components
 					for (flash_page_ID_type pageID = 0; pageID < block->Current_page_write_index; pageID++) {
 						// For hot/warm blocks using only LSB pages, skip non-LSB pages FIRST
 						if (block->Hotness == BlockHotness::HOT || block->Hotness == BlockHotness::WARM) {
-							// Only process LSB pages (0, 3, 6, 9, ...)
-							if (pageID % 3 != 0) {
+							// Only process LSB pages using is_lsb_page function
+							if (!is_lsb_page(pageID)) {
 								continue;
 							}
 						}

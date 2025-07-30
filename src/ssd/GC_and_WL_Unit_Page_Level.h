@@ -29,10 +29,8 @@ namespace SSD_Components
 		void Check_warm_pool_status(const NVM::FlashMemory::Physical_Page_Address& plane_address);
 	private:
 		NVM_PHY_ONFI * flash_controller;
-		const sim_time_type WARM_POOL_CHECK_INTERVAL = 10000000;
 		const sim_time_type WARM_TO_HOT_THRESHOLD_TIME = 50000000;
 		const double HOT_RATIO_THRESHOLD = 0.5;
-		sim_time_type last_warm_pool_check_time = 0;
 	};
 }
 #endif // !GC_AND_WL_UNIT_PAGE_LEVEL_H

@@ -16,7 +16,8 @@ namespace SSD_Components
 		random_generator(seed), max_ongoing_gc_reqs_per_plane(max_ongoing_gc_reqs_per_plane),
 		channel_count(channel_count), chip_no_per_channel(chip_no_per_channel), die_no_per_chip(die_no_per_chip), plane_no_per_die(plane_no_per_die),
 		block_no_per_plane(block_no_per_plane), pages_no_per_block(page_no_per_block), sector_no_per_page(sector_no_per_page),
-		dynamic_wearleveling_enabled(dynamic_wearleveling_enabled), static_wearleveling_enabled(static_wearleveling_enabled), static_wearleveling_threshold(static_wearleveling_threshold)
+		dynamic_wearleveling_enabled(dynamic_wearleveling_enabled), static_wearleveling_enabled(static_wearleveling_enabled), static_wearleveling_threshold(static_wearleveling_threshold),
+		last_warm_pool_check_time(0)
 	{
 		_my_instance = this;
 		block_pool_gc_threshold = (unsigned int)(gc_threshold * (double)block_no_per_plane);
@@ -63,8 +64,31 @@ namespace SSD_Components
 						NVM::FlashMemory::Physical_Page_Address gc_wl_candidate_address(transaction->Address);
 						Block_Pool_Slot_Type* block = &pbke->Blocks[transaction->Address.BlockID];
 						Stats::Total_gc_executions++;
+						
+						// Print real-time GC execution count
+						std::cout << "GC executed! Total count: " << Stats::Total_gc_executions 
+								  << " (Channel: " << transaction->Address.ChannelID 
+								  << ", Chip: " << transaction->Address.ChipID 
+								  << ", Die: " << transaction->Address.DieID 
+								  << ", Plane: " << transaction->Address.PlaneID 
+								  << ", Block: " << transaction->Address.BlockID << ")" << std::endl;
+						
 						_my_instance->tsu->Prepare_for_transaction_submit();
 						NVM_Transaction_Flash_ER* gc_wl_erase_tr = new NVM_Transaction_Flash_ER(Transaction_Source_Type::GC_WL, block->Stream_id, gc_wl_candidate_address);
+						
+						// Check if HOT block should be changed to WARM based on valid page ratio
+						if (block->Hotness == BlockHotness::HOT) {
+							unsigned int valid_pages = block->Current_page_write_index - block->Invalid_page_count;
+							unsigned int total_pages = block->Current_page_write_index;
+							double valid_ratio = (double)valid_pages / total_pages;
+							
+							// If HOT block has high valid page ratio (> 50%), change to WARM
+							if (valid_ratio > 0.5) {
+								std::cout << "HOT block " << transaction->Address.BlockID << " has high valid ratio (" 
+										  << valid_ratio * 100 << "%), changing to WARM" << std::endl;
+								_my_instance->block_manager->Change_block_status_to_warm(block, transaction->Address);
+							}
+						}
 						
 						//If there are some valid pages in block, then prepare flash transactions for page movement
 						if (block->Current_page_write_index - block->Invalid_page_count > 0) {
@@ -74,8 +98,8 @@ namespace SSD_Components
 							for (flash_page_ID_type pageID = 0; pageID < block->Current_page_write_index; pageID++) {
 								// For hot/warm blocks using only LSB pages, skip non-LSB pages FIRST
 								if (block->Hotness == BlockHotness::HOT || block->Hotness == BlockHotness::WARM) {
-									// Only process LSB pages (0, 3, 6, 9, ...)
-									if (pageID % 3 != 0) {
+									// Only process LSB pages
+									if (!is_lsb_page(pageID)) {
 										continue;
 									}
 								}
@@ -164,7 +188,8 @@ namespace SSD_Components
 						_my_instance->tsu->Submit_transaction(((NVM_Transaction_Flash_RD*)transaction)->RelatedWrite);
 						_my_instance->tsu->Schedule();
 					} else {
-						PRINT_ERROR("Inconsistency found when moving a page for GC/WL!")
+						break;
+						//PRINT_ERROR("Inconsistency found when moving a page for GC/WL!")
 					}
 				}
 				break;
@@ -186,6 +211,15 @@ namespace SSD_Components
 				break;
 			case Transaction_Type::ERASE:
 				pbke->Ongoing_erase_operations.erase(pbke->Ongoing_erase_operations.find(transaction->Address.BlockID));
+				
+				// Set GC-erased block to WARM to maintain WARM pool
+				Block_Pool_Slot_Type* erased_block = &pbke->Blocks[transaction->Address.BlockID];
+				if (erased_block->Hotness != BlockHotness::WARM) {
+					std::cout << "GC completed: Setting block " << transaction->Address.BlockID 
+							  << " to WARM (was " << (int)erased_block->Hotness << ")" << std::endl;
+					_my_instance->block_manager->Change_block_status_to_warm(erased_block, transaction->Address);
+				}
+				
 				_my_instance->block_manager->Add_erased_block_to_pool(transaction->Address);
 				_my_instance->block_manager->GC_WL_finished(transaction->Address);
 				if (_my_instance->check_static_wl_required(transaction->Address)) {
@@ -193,6 +227,13 @@ namespace SSD_Components
 				}
 				_my_instance->address_mapping_unit->Start_servicing_writes_for_overfull_plane(transaction->Address);//Must be inovked after above statements since it may lead to flash page consumption for waiting program transactions
 
+				// Check warm pool status periodically (independent of GC)
+				sim_time_type current_time = Simulator->Time();
+				if (current_time - _my_instance->last_warm_pool_check_time >= _my_instance->WARM_POOL_CHECK_INTERVAL) {
+					_my_instance->Check_warm_pool_status(transaction->Address);
+					_my_instance->last_warm_pool_check_time = current_time;
+				}
+				
 				if (_my_instance->Stop_servicing_writes(transaction->Address)) {
 					_my_instance->Check_gc_required(pbke->Get_free_block_pool_size(), transaction->Address);
 				}

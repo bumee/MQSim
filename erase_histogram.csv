@@ -1,6 +1,6 @@
 Channel: 0, Chip: 0, Die: 0, Plane: 0
-Erase Count 0: 524278 Blocks
-Erase Count 1: 10 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -3000,8 +3000,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 0, Chip: 0, Die: 0, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -6001,8 +6001,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 0, Chip: 0, Die: 1, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -9002,8 +9002,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 0, Chip: 0, Die: 1, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -12003,8 +12003,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 0, Chip: 1, Die: 0, Plane: 0
-Erase Count 0: 524278 Blocks
-Erase Count 1: 10 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -15004,8 +15004,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 0, Chip: 1, Die: 0, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -18005,8 +18005,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 0, Chip: 1, Die: 1, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -21006,8 +21006,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 0, Chip: 1, Die: 1, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -24007,8 +24007,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 0, Chip: 2, Die: 0, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -27008,8 +27008,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 0, Chip: 2, Die: 0, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -30009,8 +30009,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 0, Chip: 2, Die: 1, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -33010,8 +33010,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 0, Chip: 2, Die: 1, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -36011,8 +36011,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 0, Chip: 3, Die: 0, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -39012,8 +39012,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 0, Chip: 3, Die: 0, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -42013,8 +42013,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 0, Chip: 3, Die: 1, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -45014,8 +45014,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 0, Chip: 3, Die: 1, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -48015,8 +48015,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 1, Chip: 0, Die: 0, Plane: 0
-Erase Count 0: 524278 Blocks
-Erase Count 1: 10 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -51016,8 +51016,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 1, Chip: 0, Die: 0, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -54017,8 +54017,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 1, Chip: 0, Die: 1, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -57018,8 +57018,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 1, Chip: 0, Die: 1, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -60019,8 +60019,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 1, Chip: 1, Die: 0, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -63020,8 +63020,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 1, Chip: 1, Die: 0, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -66021,8 +66021,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 1, Chip: 1, Die: 1, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -69022,8 +69022,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 1, Chip: 1, Die: 1, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -72023,8 +72023,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 1, Chip: 2, Die: 0, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -75024,8 +75024,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 1, Chip: 2, Die: 0, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -78025,8 +78025,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 1, Chip: 2, Die: 1, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -81026,8 +81026,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 1, Chip: 2, Die: 1, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -84027,8 +84027,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 1, Chip: 3, Die: 0, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -87028,8 +87028,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 1, Chip: 3, Die: 0, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -90029,8 +90029,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 1, Chip: 3, Die: 1, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -93030,8 +93030,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 1, Chip: 3, Die: 1, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -96031,8 +96031,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 2, Chip: 0, Die: 0, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -99032,8 +99032,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 2, Chip: 0, Die: 0, Plane: 1
-Erase Count 0: 524278 Blocks
-Erase Count 1: 10 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -102033,8 +102033,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 2, Chip: 0, Die: 1, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -105034,8 +105034,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 2, Chip: 0, Die: 1, Plane: 1
-Erase Count 0: 524278 Blocks
-Erase Count 1: 10 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -108035,8 +108035,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 2, Chip: 1, Die: 0, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -111036,8 +111036,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 2, Chip: 1, Die: 0, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -114037,8 +114037,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 2, Chip: 1, Die: 1, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -117038,8 +117038,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 2, Chip: 1, Die: 1, Plane: 1
-Erase Count 0: 524278 Blocks
-Erase Count 1: 10 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -120039,8 +120039,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 2, Chip: 2, Die: 0, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -123040,8 +123040,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 2, Chip: 2, Die: 0, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -126041,8 +126041,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 2, Chip: 2, Die: 1, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -129042,8 +129042,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 2, Chip: 2, Die: 1, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -132043,8 +132043,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 2, Chip: 3, Die: 0, Plane: 0
-Erase Count 0: 524278 Blocks
-Erase Count 1: 10 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -135044,8 +135044,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 2, Chip: 3, Die: 0, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -138045,8 +138045,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 2, Chip: 3, Die: 1, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -141046,8 +141046,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 2, Chip: 3, Die: 1, Plane: 1
-Erase Count 0: 524278 Blocks
-Erase Count 1: 10 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -144047,8 +144047,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 3, Chip: 0, Die: 0, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -147048,8 +147048,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 3, Chip: 0, Die: 0, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -150049,8 +150049,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 3, Chip: 0, Die: 1, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -153050,8 +153050,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 3, Chip: 0, Die: 1, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -156051,8 +156051,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 3, Chip: 1, Die: 0, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -159052,8 +159052,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 3, Chip: 1, Die: 0, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -162053,8 +162053,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 3, Chip: 1, Die: 1, Plane: 0
-Erase Count 0: 524278 Blocks
-Erase Count 1: 10 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -165054,8 +165054,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 3, Chip: 1, Die: 1, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -168055,8 +168055,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 3, Chip: 2, Die: 0, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -171056,8 +171056,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 3, Chip: 2, Die: 0, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -174057,8 +174057,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 3, Chip: 2, Die: 1, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -177058,8 +177058,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 3, Chip: 2, Die: 1, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -180059,8 +180059,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 3, Chip: 3, Die: 0, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -183060,8 +183060,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 3, Chip: 3, Die: 0, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -186061,8 +186061,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 3, Chip: 3, Die: 1, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -189062,8 +189062,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 3, Chip: 3, Die: 1, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -192063,8 +192063,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 4, Chip: 0, Die: 0, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -195064,8 +195064,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 4, Chip: 0, Die: 0, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -198065,8 +198065,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 4, Chip: 0, Die: 1, Plane: 0
-Erase Count 0: 524278 Blocks
-Erase Count 1: 10 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -201066,8 +201066,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 4, Chip: 0, Die: 1, Plane: 1
-Erase Count 0: 524278 Blocks
-Erase Count 1: 10 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -204067,8 +204067,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 4, Chip: 1, Die: 0, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -207068,8 +207068,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 4, Chip: 1, Die: 0, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -210069,8 +210069,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 4, Chip: 1, Die: 1, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -213070,8 +213070,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 4, Chip: 1, Die: 1, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -216071,8 +216071,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 4, Chip: 2, Die: 0, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -219072,8 +219072,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 4, Chip: 2, Die: 0, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -222073,8 +222073,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 4, Chip: 2, Die: 1, Plane: 0
-Erase Count 0: 524278 Blocks
-Erase Count 1: 10 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -225074,8 +225074,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 4, Chip: 2, Die: 1, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -228075,8 +228075,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 4, Chip: 3, Die: 0, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -231076,8 +231076,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 4, Chip: 3, Die: 0, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -234077,8 +234077,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 4, Chip: 3, Die: 1, Plane: 0
-Erase Count 0: 524278 Blocks
-Erase Count 1: 10 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -237078,8 +237078,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 4, Chip: 3, Die: 1, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -240079,8 +240079,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 5, Chip: 0, Die: 0, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -243080,8 +243080,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 5, Chip: 0, Die: 0, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -246081,8 +246081,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 5, Chip: 0, Die: 1, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -249082,8 +249082,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 5, Chip: 0, Die: 1, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -252083,8 +252083,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 5, Chip: 1, Die: 0, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -255084,8 +255084,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 5, Chip: 1, Die: 0, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -258085,8 +258085,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 5, Chip: 1, Die: 1, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -261086,8 +261086,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 5, Chip: 1, Die: 1, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -264087,8 +264087,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 5, Chip: 2, Die: 0, Plane: 0
-Erase Count 0: 524278 Blocks
-Erase Count 1: 10 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -267088,8 +267088,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 5, Chip: 2, Die: 0, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -270089,8 +270089,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 5, Chip: 2, Die: 1, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -273090,8 +273090,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 5, Chip: 2, Die: 1, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -276091,8 +276091,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 5, Chip: 3, Die: 0, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -279092,8 +279092,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 5, Chip: 3, Die: 0, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -282093,8 +282093,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 5, Chip: 3, Die: 1, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -285094,8 +285094,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 5, Chip: 3, Die: 1, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -288095,8 +288095,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 6, Chip: 0, Die: 0, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -291096,8 +291096,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 6, Chip: 0, Die: 0, Plane: 1
-Erase Count 0: 524278 Blocks
-Erase Count 1: 10 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -294097,8 +294097,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 6, Chip: 0, Die: 1, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -297098,8 +297098,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 6, Chip: 0, Die: 1, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -300099,8 +300099,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 6, Chip: 1, Die: 0, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -303100,8 +303100,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 6, Chip: 1, Die: 0, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -306101,8 +306101,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 6, Chip: 1, Die: 1, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -309102,8 +309102,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 6, Chip: 1, Die: 1, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -312103,8 +312103,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 6, Chip: 2, Die: 0, Plane: 0
-Erase Count 0: 524278 Blocks
-Erase Count 1: 10 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -315104,8 +315104,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 6, Chip: 2, Die: 0, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -318105,8 +318105,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 6, Chip: 2, Die: 1, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -321106,8 +321106,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 6, Chip: 2, Die: 1, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -324107,8 +324107,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 6, Chip: 3, Die: 0, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -327108,8 +327108,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 6, Chip: 3, Die: 0, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -330109,8 +330109,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 6, Chip: 3, Die: 1, Plane: 0
-Erase Count 0: 524278 Blocks
-Erase Count 1: 10 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -333110,8 +333110,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 6, Chip: 3, Die: 1, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -336111,8 +336111,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 7, Chip: 0, Die: 0, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -339112,8 +339112,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 7, Chip: 0, Die: 0, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -342113,8 +342113,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 7, Chip: 0, Die: 1, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -345114,8 +345114,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 7, Chip: 0, Die: 1, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -348115,8 +348115,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 7, Chip: 1, Die: 0, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -351116,8 +351116,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 7, Chip: 1, Die: 0, Plane: 1
-Erase Count 0: 524278 Blocks
-Erase Count 1: 10 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -354117,8 +354117,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 7, Chip: 1, Die: 1, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -357118,8 +357118,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 7, Chip: 1, Die: 1, Plane: 1
-Erase Count 0: 524278 Blocks
-Erase Count 1: 10 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -360119,8 +360119,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 7, Chip: 2, Die: 0, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -363120,8 +363120,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 7, Chip: 2, Die: 0, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -366121,8 +366121,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 7, Chip: 2, Die: 1, Plane: 0
-Erase Count 0: 524278 Blocks
-Erase Count 1: 10 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -369122,8 +369122,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 7, Chip: 2, Die: 1, Plane: 1
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -372123,8 +372123,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 7, Chip: 3, Die: 0, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -375124,8 +375124,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 7, Chip: 3, Die: 0, Plane: 1
-Erase Count 0: 524278 Blocks
-Erase Count 1: 10 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -378125,8 +378125,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 7, Chip: 3, Die: 1, Plane: 0
-Erase Count 0: 524277 Blocks
-Erase Count 1: 11 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks
@@ -381126,8 +381126,8 @@ Erase Count 2997: 0 Blocks
 Erase Count 2998: 0 Blocks
 Erase Count 2999: 0 Blocks
 Channel: 7, Chip: 3, Die: 1, Plane: 1
-Erase Count 0: 524278 Blocks
-Erase Count 1: 10 Blocks
+Erase Count 0: 524288 Blocks
+Erase Count 1: 0 Blocks
 Erase Count 2: 0 Blocks
 Erase Count 3: 0 Blocks
 Erase Count 4: 0 Blocks

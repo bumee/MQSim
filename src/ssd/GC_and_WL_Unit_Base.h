@@ -97,6 +97,10 @@ namespace SSD_Components
 		unsigned int block_no_per_plane;
 		unsigned int pages_no_per_block;
 		unsigned int sector_no_per_page;
+		
+		// Warm pool check variables
+		sim_time_type last_warm_pool_check_time;
+		const sim_time_type WARM_POOL_CHECK_INTERVAL = 30000000; // 30ms
 	};
 }
 

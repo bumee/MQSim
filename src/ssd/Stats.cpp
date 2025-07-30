@@ -89,6 +89,40 @@ namespace SSD_Components
 	void Stats::Print_stats(unsigned int channel_no, unsigned int chip_no_per_channel, unsigned int die_no_per_chip, unsigned int plane_no_per_die,
 		unsigned int block_no_per_plane, unsigned int page_no_per_block, unsigned int max_allowed_block_erase_count)
 	{
+		// Print GC statistics
+		std::cout << "=== GC Statistics ===" << std::endl;
+		std::cout << "Total GC executions: " << Total_gc_executions << std::endl;
+		std::cout << "Total page movements for GC: " << Total_page_movements_for_gc << std::endl;
+		std::cout << "Total WL executions: " << Total_wl_executions << std::endl;
+		std::cout << "Total page movements for WL: " << Total_page_movements_for_wl << std::endl;
+		
+		// Print per-stream GC statistics
+		for (stream_id_type stream_id = 0; stream_id < MAX_SUPPORT_STREAMS; stream_id++) {
+			if (Total_gc_executions_per_stream[stream_id] > 0) {
+				std::cout << "Stream " << stream_id << " - GC executions: " << Total_gc_executions_per_stream[stream_id] 
+						  << ", Page movements: " << Total_gc_page_movements_per_stream[stream_id] << std::endl;
+			}
+		}
+		std::cout << "===================" << std::endl;
+
+		// Save GC statistics to file
+		std::ofstream gc_stats_file("gc_statistics.txt");
+		if (gc_stats_file.is_open()) {
+			gc_stats_file << "=== GC Statistics ===" << std::endl;
+			gc_stats_file << "Total GC executions: " << Total_gc_executions << std::endl;
+			gc_stats_file << "Total page movements for GC: " << Total_page_movements_for_gc << std::endl;
+			gc_stats_file << "Total WL executions: " << Total_wl_executions << std::endl;
+			gc_stats_file << "Total page movements for WL: " << Total_page_movements_for_wl << std::endl;
+			
+			for (stream_id_type stream_id = 0; stream_id < MAX_SUPPORT_STREAMS; stream_id++) {
+				if (Total_gc_executions_per_stream[stream_id] > 0) {
+					gc_stats_file << "Stream " << stream_id << " - GC executions: " << Total_gc_executions_per_stream[stream_id] 
+							  << ", Page movements: " << Total_gc_page_movements_per_stream[stream_id] << std::endl;
+				}
+			}
+			gc_stats_file.close();
+		}
+
 		std::ofstream outfile("erase_histogram.csv");
 		if (!outfile.is_open()) {
         	std::cerr << "Error: Could not open file for writing." << std::endl;

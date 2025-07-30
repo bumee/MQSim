@@ -1,0 +1,5 @@
+=== GC Statistics ===
+Total GC executions: 0
+Total page movements for GC: 0
+Total WL executions: 0
+Total page movements for WL: 0

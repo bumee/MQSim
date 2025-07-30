@@ -14,8 +14,8 @@ namespace SSD_Components
 		plane_manager = new PlaneBookKeepingType***[channel_count];
 		
 
-		float hot_ratio  = 0.10f;   // 예: 10%를 hot
-		float warm_ratio = 0.20f;   // 예: 20%를 warm
+		float hot_ratio  = 0.20f;   // 예: 10%를 hot
+		float warm_ratio = 0.30f;   // 예: 20%를 warm
 
 		unsigned int blocks_per_plane = block_no_per_plane;
 		//std::cout << "blocks_per_plane: " << blocks_per_plane << std::endl;
@@ -36,6 +36,7 @@ namespace SSD_Components
 						plane_manager[channelID][chipID][dieID][planeID].Free_pages_count = block_no_per_plane * pages_no_per_block;
 						plane_manager[channelID][chipID][dieID][planeID].Valid_pages_count = 0;
 						plane_manager[channelID][chipID][dieID][planeID].Invalid_pages_count = 0;
+						plane_manager[channelID][chipID][dieID][planeID].pages_no_per_block = pages_no_per_block;
 						plane_manager[channelID][chipID][dieID][planeID].Ongoing_erase_operations.clear();
 						plane_manager[channelID][chipID][dieID][planeID].Blocks = new Block_Pool_Slot_Type[block_no_per_plane];
 						
@@ -65,10 +66,30 @@ namespace SSD_Components
 							if (blockID < hot_count) {
 								h = BlockHotness::HOT;
 								plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].Hotness = h;
+								
+								// For HOT blocks, invalidate all CSB/MSB pages since only LSB pages are used
+								for (flash_page_ID_type pageID = 0; pageID < pages_no_per_block; pageID++) {
+									if (!is_lsb_page(pageID)) {
+										plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].Invalid_page_bitmap[pageID / 64] |= ((uint64_t)0x1) << (pageID % 64);
+										plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].Invalid_page_count++;
+										plane_manager[channelID][chipID][dieID][planeID].Invalid_pages_count++;
+										plane_manager[channelID][chipID][dieID][planeID].Free_pages_count--;
+									}
+								}
 							}
 							else if (blockID < hot_count + warm_count) {
 								h = BlockHotness::WARM;
 								plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].Hotness = h;
+								
+								// For WARM blocks, invalidate all CSB/MSB pages since only LSB pages are used
+								for (flash_page_ID_type pageID = 0; pageID < pages_no_per_block; pageID++) {
+									if (!is_lsb_page(pageID)) {
+										plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].Invalid_page_bitmap[pageID / 64] |= ((uint64_t)0x1) << (pageID % 64);
+										plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].Invalid_page_count++;
+										plane_manager[channelID][chipID][dieID][planeID].Invalid_pages_count++;
+										plane_manager[channelID][chipID][dieID][planeID].Free_pages_count--;
+									}
+								}
 							}
 							else {
 								h = BlockHotness::COLD;
@@ -132,13 +153,24 @@ namespace SSD_Components
 		this->gc_and_wl_unit = gcwl;
 	}
 
-	void Block_Pool_Slot_Type::Erase()
+	void Block_Pool_Slot_Type::Erase(BlockHotness hotness)
 	{
 		Current_page_write_index = 0;
 		Invalid_page_count = 0;
 		Erase_count++;
-		for (unsigned int i = 0; i < Block_Pool_Slot_Type::Page_vector_size; i++) {
-			Invalid_page_bitmap[i] = All_VALID_PAGE;
+		// For HOT and warm blocks, invalidate all CSB/MSB pages since only LSB pages are used
+		if (hotness == BlockHotness::HOT || hotness == BlockHotness::WARM) {
+			for (flash_page_ID_type pageID = 0; Block_Pool_Slot_Type::Page_vector_size; pageID++) {
+				if (!is_lsb_page(pageID)) {
+					Invalid_page_bitmap[pageID / 64] |= ((uint64_t)0x1) << (pageID % 64);
+					Invalid_page_count++;
+				}
+			}
+		}
+		else {
+			for (unsigned int i = 0; i < Block_Pool_Slot_Type::Page_vector_size; i++) {
+				Invalid_page_bitmap[i] = All_VALID_PAGE;
+			}
 		}
 		Stream_id = NO_STREAM;
 		Holds_mapping_data = false;
@@ -178,111 +210,206 @@ namespace SSD_Components
 			}
 		}
 		
+		// For COLD blocks, make all pages valid since all pages can be used
+		for (flash_page_ID_type pageID = 0; pageID < pages_no_per_block; pageID++) {
+			if (!is_lsb_page(pageID)) {
+				// Mark CSB/MSB pages as valid (clear invalid bit)
+				block->Invalid_page_bitmap[pageID / 64] &= ~(((uint64_t)0x1) << (pageID % 64));
+				block->Invalid_page_count--;
+				pbke->Invalid_pages_count--;
+				pbke->Free_pages_count++;
+			}
+		}
+		
 		// change block status
 		block->Hotness = BlockHotness::COLD;
 	}
 
-	void PlaneBookKeepingType::Move_block_to_hot_pool(Block_Pool_Slot_Type* block) {
-		for (auto it = Free_warm_block_pool.begin(); it != Free_warm_block_pool.end(); ++it) {
-			if (it->second == block) {
-				Free_warm_block_pool.erase(it);
+	void Flash_Block_Manager_Base::Change_block_status_to_warm(Block_Pool_Slot_Type* block, const NVM::FlashMemory::Physical_Page_Address& plane_address)
+	{
+		PlaneBookKeepingType* pbke = &plane_manager[plane_address.ChannelID][plane_address.ChipID][plane_address.DieID][plane_address.PlaneID];
+
+		// remove from existing write frontier (if this block was a write frontier)
+		for (stream_id_type stream_id = 0; stream_id < total_concurrent_streams_no; stream_id++) {
+			if (pbke->Data_hot_wf[stream_id] == block) {
+				// assign new warm block
+				pbke->Data_hot_wf[stream_id] = pbke->Get_a_free_block(stream_id, false, BlockHotness::HOT);
 				break;
 			}
 		}
 		
-		block->Hotness = BlockHotness::HOT;
-		Free_hot_block_pool.emplace(block->Erase_count, block);
+		// For WARM blocks, invalidate all CSB/MSB pages since only LSB pages are used
+		for (flash_page_ID_type pageID = 0; pageID < pages_no_per_block; pageID++) {
+			if (!is_lsb_page(pageID)) {
+				// Mark CSB/MSB pages as invalid
+				block->Invalid_page_bitmap[pageID / 64] |= ((uint64_t)0x1) << (pageID % 64);
+				block->Invalid_page_count++;
+				pbke->Invalid_pages_count++;
+				pbke->Free_pages_count--;
+			}
+		}
+		
+		// change block status
+		block->Hotness = BlockHotness::WARM;
 	}
 
-	void PlaneBookKeepingType::Move_block_to_cold_pool(Block_Pool_Slot_Type* block) {
-		for (auto it = Free_warm_block_pool.begin(); it != Free_warm_block_pool.end(); ++it) {
-			if (it->second == block) {
-				Free_warm_block_pool.erase(it);
-				break;
+	void Flash_Block_Manager_Base::ResetAllPageHotnessCounters()
+	{
+		std::cout << "Resetting all page hotness counters in the entire SSD..." << std::endl;
+		
+		// Reset all page hotness counters in all blocks across all planes
+		for (unsigned int channelID = 0; channelID < channel_count; channelID++) {
+			for (unsigned int chipID = 0; chipID < chip_no_per_channel; chipID++) {
+				for (unsigned int dieID = 0; dieID < die_no_per_chip; dieID++) {
+					for (unsigned int planeID = 0; planeID < plane_no_per_die; planeID++) {
+						PlaneBookKeepingType* pbke = &plane_manager[channelID][chipID][dieID][planeID];
+						
+						for (unsigned int blockID = 0; blockID < block_no_per_plane; blockID++) {
+							Block_Pool_Slot_Type* block = &pbke->Blocks[blockID];
+							
+							// Reset all page hotness counters in this block
+							for (flash_page_ID_type pageID = 0; pageID < this->pages_no_per_block; pageID++) {
+								block->page_hotness_counters[pageID] = 0;
+							}
+						}
+					}
+				}
 			}
 		}
 		
-		block->Hotness = BlockHotness::COLD;
-		Free_cold_block_pool.emplace(block->Erase_count, block);
+		std::cout << "All page hotness counters have been reset to 0." << std::endl;
 	}
+
 
 	Block_Pool_Slot_Type* PlaneBookKeepingType::Get_a_free_block(stream_id_type stream_id, bool for_mapping_data, SSD_Components::BlockHotness blockhotness)
 	{
-    // 3-2) select proper block pool
-    std::multimap<unsigned int, Block_Pool_Slot_Type*>* primary_pool = nullptr;
-    std::multimap<unsigned int, Block_Pool_Slot_Type*>* fallback_pool1 = nullptr;
-    std::multimap<unsigned int, Block_Pool_Slot_Type*>* fallback_pool2 = nullptr;
+		// 3-2) select proper block pool
+		std::multimap<unsigned int, Block_Pool_Slot_Type*>* primary_pool = nullptr;
+		std::multimap<unsigned int, Block_Pool_Slot_Type*>* fallback_pool1 = nullptr;
+		std::multimap<unsigned int, Block_Pool_Slot_Type*>* fallback_pool2 = nullptr;
 
-    // Set primary and fallback pools based on hotness
-    switch(blockhotness) {
-        case BlockHotness::HOT:
-            primary_pool = &Free_hot_block_pool;
-            fallback_pool1 = &Free_warm_block_pool;
-            fallback_pool2 = &Free_cold_block_pool;
-            break;
-        case BlockHotness::WARM:
-            primary_pool = &Free_warm_block_pool;
-            fallback_pool1 = &Free_hot_block_pool;
-            fallback_pool2 = &Free_cold_block_pool;
-            break;
-        case BlockHotness::COLD:
-            primary_pool = &Free_cold_block_pool;
-            fallback_pool1 = &Free_warm_block_pool;
-            fallback_pool2 = &Free_hot_block_pool;
-            break;
-    }
+		// Set primary and fallback pools based on hotness
+		switch(blockhotness) {
+			case BlockHotness::HOT:
+				primary_pool = &Free_hot_block_pool;
+				fallback_pool1 = &Free_warm_block_pool;
+				fallback_pool2 = &Free_cold_block_pool;
+				break;
+			case BlockHotness::WARM:
+				primary_pool = &Free_warm_block_pool;
+				fallback_pool1 = &Free_hot_block_pool;
+				fallback_pool2 = &Free_cold_block_pool;
+				break;
+			case BlockHotness::COLD:
+				primary_pool = &Free_cold_block_pool;
+				fallback_pool1 = &Free_warm_block_pool;
+				fallback_pool2 = &Free_hot_block_pool;
+				break;
+		}
 
-    // Try to get a block from primary pool
-    if (!primary_pool->empty()) {
-        auto it = primary_pool->begin();
-        Block_Pool_Slot_Type* new_block = it->second;
-        primary_pool->erase(it);
-        
-        new_block->Stream_id = stream_id;
-        new_block->Holds_mapping_data = for_mapping_data;
-        Block_usage_history.push(new_block->BlockID);
-        
-        return new_block;
-    }
+		// Try to get a block from primary pool
+		if (!primary_pool->empty()) {
+			auto it = primary_pool->begin();
+			Block_Pool_Slot_Type* new_block = it->second;
+			primary_pool->erase(it);
+			
+			new_block->Stream_id = stream_id;
+			new_block->Holds_mapping_data = for_mapping_data;
+			Block_usage_history.push(new_block->BlockID);
+			
+			return new_block;
+		}
 
-    // Try first fallback pool
-    if (!fallback_pool1->empty()) {
-        //PRINT_MESSAGE("Warning: Primary pool empty, using first fallback pool for hotness " + 
-            //std::string(blockhotness == BlockHotness::HOT ? "HOT" : 
-                       //blockhotness == BlockHotness::WARM ? "WARM" : "COLD"));
-        
-        auto it = fallback_pool1->begin();
-        Block_Pool_Slot_Type* new_block = it->second;
-        fallback_pool1->erase(it);
-        
-        new_block->Stream_id = stream_id;
-        new_block->Holds_mapping_data = for_mapping_data;
-        Block_usage_history.push(new_block->BlockID);
-        
-        return new_block;
-    }
+		// Try first fallback pool
+		if (!fallback_pool1->empty()) {
+			//PRINT_MESSAGE("Warning: Primary pool empty, using first fallback pool for hotness " + 
+				//std::string(blockhotness == BlockHotness::HOT ? "HOT" : 
+						//blockhotness == BlockHotness::WARM ? "WARM" : "COLD"));
+			
+			auto it = fallback_pool1->begin();
+			Block_Pool_Slot_Type* new_block = it->second;
+			fallback_pool1->erase(it);
+			
+			// Change block hotness to match requested hotness
+			if (new_block->Hotness != blockhotness) {
+				//std::cout << "Fallback pool: Changing block " << new_block->BlockID 
+						//<< " from " << (int)new_block->Hotness << " to " << (int)blockhotness << std::endl;
+				
+				// Update hotness and invalid page settings
+				if (blockhotness == BlockHotness::HOT || blockhotness == BlockHotness::WARM) {
+					// Invalidate CSB/MSB pages for HOT/WARM blocks
+					for (flash_page_ID_type pageID = 0; pageID < this->pages_no_per_block; pageID++) {
+						if (!is_lsb_page(pageID)) {
+							new_block->Invalid_page_bitmap[pageID / 64] |= ((uint64_t)0x1) << (pageID % 64);
+							new_block->Invalid_page_count++;
+						}
+					}
+				} else if (blockhotness == BlockHotness::COLD) {
+					// Make all pages valid for COLD blocks
+					for (flash_page_ID_type pageID = 0; pageID < this->pages_no_per_block; pageID++) {
+						if (!is_lsb_page(pageID)) {
+							new_block->Invalid_page_bitmap[pageID / 64] &= ~(((uint64_t)0x1) << (pageID % 64));
+							new_block->Invalid_page_count--;
+						}
+					}
+				}
+				new_block->Hotness = blockhotness;
+			}
+			
+			new_block->Stream_id = stream_id;
+			new_block->Holds_mapping_data = for_mapping_data;
+			Block_usage_history.push(new_block->BlockID);
+			
+			return new_block;
+		}
 
-    // Try second fallback pool
-    if (!fallback_pool2->empty()) {
-        //PRINT_MESSAGE("Warning: Primary and first fallback pools empty, using second fallback pool for hotness " + 
-            //std::string(blockhotness == BlockHotness::HOT ? "HOT" : 
-                       //blockhotness == BlockHotness::WARM ? "WARM" : "COLD"));
-        
-        auto it = fallback_pool2->begin();
-        Block_Pool_Slot_Type* new_block = it->second;
-        fallback_pool2->erase(it);
-        
-        new_block->Stream_id = stream_id;
-        new_block->Holds_mapping_data = for_mapping_data;
-        Block_usage_history.push(new_block->BlockID);
-        
-        return new_block;
-    }
+		// Try second fallback pool
+		if (!fallback_pool2->empty()) {
+			//PRINT_MESSAGE("Warning: Primary and first fallback pools empty, using second fallback pool for hotness " + 
+				//std::string(blockhotness == BlockHotness::HOT ? "HOT" : 
+						//blockhotness == BlockHotness::WARM ? "WARM" : "COLD"));
+			
+			auto it = fallback_pool2->begin();
+			Block_Pool_Slot_Type* new_block = it->second;
+			fallback_pool2->erase(it);
+			
+			// Change block hotness to match requested hotness
+			if (new_block->Hotness != blockhotness) {
+				//std::cout << "Second fallback pool: Changing block " << new_block->BlockID 
+						//<< " from " << (int)new_block->Hotness << " to " << (int)blockhotness << std::endl;
+				
+				// Update hotness and invalid page settings
+				if (blockhotness == BlockHotness::HOT || blockhotness == BlockHotness::WARM) {
+					// Invalidate CSB/MSB pages for HOT/WARM blocks
+					for (flash_page_ID_type pageID = 0; pageID < this->pages_no_per_block; pageID++) {
+						if (!is_lsb_page(pageID)) {
+							new_block->Invalid_page_bitmap[pageID / 64] |= ((uint64_t)0x1) << (pageID % 64);
+							new_block->Invalid_page_count++;
+						}
+					}
+				} else if (blockhotness == BlockHotness::COLD) {
+					// Make all pages valid for COLD blocks
+					for (flash_page_ID_type pageID = 0; pageID < this->pages_no_per_block; pageID++) {
+						if (!is_lsb_page(pageID)) {
+							new_block->Invalid_page_bitmap[pageID / 64] &= ~(((uint64_t)0x1) << (pageID % 64));
+							new_block->Invalid_page_count--;
+						}
+					}
+				}
+				new_block->Hotness = blockhotness;
+			}
+			
+			new_block->Stream_id = stream_id;
+			new_block->Holds_mapping_data = for_mapping_data;
+			Block_usage_history.push(new_block->BlockID);
+			
+			return new_block;
+		}
 
-    // All pools are empty
-    PRINT_ERROR("All free block pools are empty!");
-    return nullptr;
-}
+		// All pools are empty
+		PRINT_ERROR("All free block pools are empty!");
+		return nullptr;
+	}
 	
 	void PlaneBookKeepingType::Check_bookkeeping_correctness(const NVM::FlashMemory::Physical_Page_Address& plane_address)
 	{
@@ -292,7 +419,7 @@ namespace SSD_Components
 			PRINT_ERROR("Inconsistent status in the plane bookkeeping record!")
 		}
 		if (Free_pages_count == 0) {
-			PRINT_ERROR("Plane " << "@" << plane_address.ChannelID << "@" << plane_address.ChipID << "@" << plane_address.DieID << "@" << plane_address.PlaneID << " pool size: " << Get_free_block_pool_size() << " ran out of free pages! Bad resource management! It is not safe to continue simulation!");
+			//PRINT_ERROR("Plane " << "@" << plane_address.ChannelID << "@" << plane_address.ChipID << "@" << plane_address.DieID << "@" << plane_address.PlaneID << " pool size: " << Get_free_block_pool_size() << " ran out of free pages! Bad resource management! It is not safe to continue simulation!");
 		}
 	}
 
