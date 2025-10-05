@@ -9,6 +9,7 @@
 #include "exec/Host_System.h"
 #include "utils/rapidxml/rapidxml.hpp"
 #include "utils/DistributionTypes.h"
+#include "ssd/Stats.h"
 
 using namespace std;
 
@@ -300,7 +301,14 @@ int main(int argc, char* argv[])
 		PRINT_MESSAGE("MQSim finished at " << dt)
 		uint64_t duration = (uint64_t)difftime(end_time, start_time);
 		PRINT_MESSAGE("Total simulation time: " << duration / 3600 << ":" << (duration % 3600) / 60 << ":" << ((duration % 3600) % 60))
-		PRINT_MESSAGE("");
+		PRINT_MESSAGE("")
+
+		// Print GC stats since preconditioning (only once per scenario)
+		{
+			unsigned int gc_since_precond = SSD_Components::Stats::Total_gc_executions - SSD_Components::Stats::Baseline_GC_Executions_AfterPreconditioning;
+			unsigned int moves_since_precond = SSD_Components::Stats::Total_page_movements_for_gc - SSD_Components::Stats::Baseline_GC_Page_Movements_AfterPreconditioning;
+			PRINT_MESSAGE("GC since preconditioning: " << gc_since_precond << ", valid page movements: " << moves_since_precond)
+		}
 
 		PRINT_MESSAGE("Writing results to output file .......");
 		collect_results(ssd, host, (workload_defs_file_path.substr(0, workload_defs_file_path.find_last_of(".")) + "_scenario_" + std::to_string(cntr) + ".xml").c_str());

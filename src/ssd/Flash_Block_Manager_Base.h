@@ -25,6 +25,8 @@ namespace SSD_Components
 	* 5: GC_USER -> GC
 	*/
 	enum class Block_Service_Status {IDLE, GC_WL, USER, GC_USER, GC_UWAIT, GC_USER_UWAIT};
+
+	enum class BlockTemperature { HOT, WARM, COLD };
 	
 	class Block_Pool_Slot_Type
 	{
@@ -43,6 +45,7 @@ namespace SSD_Components
 		bool Hot_block = false;//Used for hot/cold separation mentioned in the "On the necessity of hot and cold data identification to reduce the write amplification in flash-based SSDs", Perf. Eval., 2014.
 		int Ongoing_user_read_count;
 		int Ongoing_user_program_count;
+		BlockTemperature Temperature = BlockTemperature::WARM;
 		void Erase();
 	};
 

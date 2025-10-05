@@ -3,6 +3,7 @@
 #include "Host_Interface_NVMe.h"
 #include "NVM_Transaction_Flash_RD.h"
 #include "NVM_Transaction_Flash_WR.h"
+#include "../utils/LpaWriteCounter.h"
 
 namespace SSD_Components
 {
@@ -202,10 +203,11 @@ void Input_Stream_Manager_NVMe::segment_user_request(User_Request *user_request)
 			user_request->Transaction_list.push_back(transaction);
 			input_streams[user_request->Stream_id]->STAT_number_of_read_transactions++;
 		}
-		else
+        else
 		{ //user_request->Type == UserRequestType::WRITE
 			NVM_Transaction_Flash_WR *transaction = new NVM_Transaction_Flash_WR(Transaction_Source_Type::USERIO, user_request->Stream_id,
 																				 transaction_size * SECTOR_SIZE_IN_BYTE, lpa, user_request, user_request->Priority_class, 0, access_status_bitmap, CurrentTimeStamp);
+            LPA_WRITE_COUNTER_ON_WRITE(lpa);
 			user_request->Transaction_list.push_back(transaction);
 			input_streams[user_request->Stream_id]->STAT_number_of_write_transactions++;
 		}

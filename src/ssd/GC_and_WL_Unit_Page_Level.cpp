@@ -59,7 +59,7 @@ namespace SSD_Components
 					}
 					for (flash_block_ID_type block_id = 1; block_id < block_no_per_plane; block_id++) {
 						if (pbke->Blocks[block_id].Invalid_page_count > pbke->Blocks[gc_candidate_block_id].Invalid_page_count
-							&& pbke->Blocks[block_id].Current_page_write_index == pages_no_per_block
+							// && pbke->Blocks[block_id].Current_page_write_index == pages_no_per_block
 							&& is_safe_gc_wl_candidate(pbke, block_id)) {
 							gc_candidate_block_id = block_id;
 						}
@@ -156,14 +156,14 @@ namespace SSD_Components
 
 				NVM_Transaction_Flash_ER* gc_erase_tr = new NVM_Transaction_Flash_ER(Transaction_Source_Type::GC_WL, pbke->Blocks[gc_candidate_block_id].Stream_id, gc_candidate_address);
 				//If there are some valid pages in block, then prepare flash transactions for page movement
-				if (block->Current_page_write_index - block->Invalid_page_count > 0) {
+                if (block->Current_page_write_index - block->Invalid_page_count > 0) {
 					NVM_Transaction_Flash_RD* gc_read = NULL;
 					NVM_Transaction_Flash_WR* gc_write = NULL;
 					for (flash_page_ID_type pageID = 0; pageID < block->Current_page_write_index; pageID++) {
 						if (block_manager->Is_page_valid(block, pageID)) {
 							Stats::Total_page_movements_for_gc++;
 							gc_candidate_address.PageID = pageID;
-							if (use_copyback) {
+                            if (use_copyback) {
 								gc_write = new NVM_Transaction_Flash_WR(Transaction_Source_Type::GC_WL, block->Stream_id, sector_no_per_page * SECTOR_SIZE_IN_BYTE,
 									NO_LPA, address_mapping_unit->Convert_address_to_ppa(gc_candidate_address), NULL, 0, NULL, 0, INVALID_TIME_STAMP);
 								gc_write->ExecutionMode = WriteExecutionModeType::COPYBACK;
@@ -171,8 +171,9 @@ namespace SSD_Components
 							} else {
 								gc_read = new NVM_Transaction_Flash_RD(Transaction_Source_Type::GC_WL, block->Stream_id, sector_no_per_page * SECTOR_SIZE_IN_BYTE,
 									NO_LPA, address_mapping_unit->Convert_address_to_ppa(gc_candidate_address), gc_candidate_address, NULL, 0, NULL, 0, INVALID_TIME_STAMP);
-								gc_write = new NVM_Transaction_Flash_WR(Transaction_Source_Type::GC_WL, block->Stream_id, sector_no_per_page * SECTOR_SIZE_IN_BYTE,
-									NO_LPA, NO_PPA, gc_candidate_address, NULL, 0, gc_read, 0, INVALID_TIME_STAMP);
+                                // Create write and tag target temperature based on source block
+                                gc_write = new NVM_Transaction_Flash_WR(Transaction_Source_Type::GC_WL, block->Stream_id, sector_no_per_page * SECTOR_SIZE_IN_BYTE,
+                                    NO_LPA, NO_PPA, gc_candidate_address, NULL, 0, gc_read, 0, INVALID_TIME_STAMP);
 								gc_write->ExecutionMode = WriteExecutionModeType::SIMPLE;
 								gc_write->RelatedErase = gc_erase_tr;
 								gc_read->RelatedWrite = gc_write;

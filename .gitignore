@@ -1,3 +1,10 @@
 MQSim
 build/
+traces/
+*.png
+tools/
+*.csv
+*.py
+*.log
+
 

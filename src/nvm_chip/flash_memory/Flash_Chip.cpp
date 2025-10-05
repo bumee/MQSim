@@ -1,6 +1,7 @@
 #include "../../sim/Sim_Defs.h"
 #include "../../sim/Engine.h"
 #include "Flash_Chip.h"
+#include "../../ssd/Stats.h"
 
 
 namespace NVM
@@ -156,9 +157,11 @@ namespace NVM
 						STAT_readCount++;
 						targetDie->Planes[command->Address[planeCntr].PlaneID]->Read_count++;
 						targetDie->Planes[command->Address[planeCntr].PlaneID]->Blocks[command->Address[planeCntr].BlockID]->Pages[command->Address[planeCntr].PageID].Read_metadata(command->Meta_data[planeCntr]);
+						// Record OOB access timestamp for read
+						targetDie->Planes[command->Address[planeCntr].PlaneID]->Blocks[command->Address[planeCntr].BlockID]->Pages[command->Address[planeCntr].PageID].Record_access(Simulator->Time());
 					}
 					break;
-				case CMD_PROGRAM_PAGE:
+                case CMD_PROGRAM_PAGE:
 				case CMD_PROGRAM_PAGE_MULTIPLANE:
 				case CMD_PROGRAM_PAGE_COPYBACK:
 				case CMD_PROGRAM_PAGE_COPYBACK_MULTIPLANE:
@@ -167,6 +170,20 @@ namespace NVM
 						STAT_progamCount++;
 						targetDie->Planes[command->Address[planeCntr].PlaneID]->Progam_count++;
 						targetDie->Planes[command->Address[planeCntr].PlaneID]->Blocks[command->Address[planeCntr].BlockID]->Pages[command->Address[planeCntr].PageID].Write_metadata(command->Meta_data[planeCntr]);
+                        // Count by page type for statistics
+                        int lt = 0;
+                        flash_page_ID_type pid = command->Address[planeCntr].PageID;
+                        if (flash_technology == Flash_Technology_Type::MLC) {
+                            lt = pid % 2; // 0 LSB, 1 MSB
+                        } else if (flash_technology == Flash_Technology_Type::TLC) {
+                            // From Yaakobi et al., ICNC 2012
+                            lt = (pid <= 5) ? 0 : ((pid <= 7) ? 1 : (((pid - 8) >> 1) % 3));
+                        }
+                        if (lt == 0) SSD_Components::Stats::Program_LSB_Count++;
+                        else if (lt == 1) SSD_Components::Stats::Program_CSB_Count++;
+                        else if (lt == 2) SSD_Components::Stats::Program_MSB_Count++;
+						// Record OOB access timestamp for program
+						targetDie->Planes[command->Address[planeCntr].PlaneID]->Blocks[command->Address[planeCntr].BlockID]->Pages[command->Address[planeCntr].PageID].Record_access(Simulator->Time());
 					}
 					break;
 				case CMD_ERASE_BLOCK:
@@ -180,6 +197,8 @@ namespace NVM
 							//targetBlock->Pages[i].Metadata.SourceStreamID = NO_STREAM;
 							//targetBlock->Pages[i].Metadata.Status = FREE_PAGE;
 							targetBlock->Pages[i].Metadata.LPA = NO_LPA;
+							// Clear OOB on erase
+							targetBlock->Pages[i].OOB.Clear();
 						}
 					}
 					break;

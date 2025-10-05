@@ -25,6 +25,8 @@ namespace SSD_Components
 	unsigned long Stats::Total_flash_reads_for_mapping_per_stream[MAX_SUPPORT_STREAMS] = { 0 };
 	unsigned long Stats::Total_flash_writes_for_mapping_per_stream[MAX_SUPPORT_STREAMS] = { 0 };
 	unsigned int***** Stats::Block_erase_histogram;
+	unsigned int Stats::Baseline_GC_Executions_AfterPreconditioning = 0;
+	unsigned int Stats::Baseline_GC_Page_Movements_AfterPreconditioning = 0;
 	unsigned int  Stats::CMT_hits = 0, Stats::readTR_CMT_hits = 0, Stats::writeTR_CMT_hits = 0;
 	unsigned int  Stats::CMT_miss = 0, Stats::readTR_CMT_miss = 0, Stats::writeTR_CMT_miss = 0;
 	unsigned int  Stats::total_CMT_queries = 0, Stats::total_readTR_CMT_queries = 0, Stats::total_writeTR_CMT_queries = 0;
@@ -71,6 +73,8 @@ namespace SSD_Components
 		total_CMT_queries = 0; total_readTR_CMT_queries = 0; total_writeTR_CMT_queries = 0;
 
 		Total_gc_executions = 0;  Total_page_movements_for_gc = 0;
+		Baseline_GC_Executions_AfterPreconditioning = 0;
+		Baseline_GC_Page_Movements_AfterPreconditioning = 0;
 		Total_wl_executions = 0;  Total_page_movements_for_wl = 0;
 
 		for (stream_id_type stream_id = 0; stream_id < MAX_SUPPORT_STREAMS; stream_id++) {
@@ -85,6 +89,22 @@ namespace SSD_Components
 			Total_wl_page_movements_per_stream[stream_id] = 0;
 		}
 	}
+
+    // Page type counts
+    unsigned long Stats::Program_LSB_Count = 0;
+    unsigned long Stats::Program_CSB_Count = 0;
+    unsigned long Stats::Program_MSB_Count = 0;
+
+    void Stats::Dump_page_type_counts_csv()
+    {
+        FILE* f = fopen("page_type_counts.csv", "w");
+        if (!f) return;
+        fprintf(f, "type,count\n");
+        fprintf(f, "LSB,%lu\n", Program_LSB_Count);
+        fprintf(f, "CSB,%lu\n", Program_CSB_Count);
+        fprintf(f, "MSB,%lu\n", Program_MSB_Count);
+        fclose(f);
+    }
 
 	void Stats::Clear_stats(unsigned int channel_no, unsigned int chip_no_per_channel, unsigned int die_no_per_chip, unsigned int plane_no_per_die,
 		unsigned int block_no_per_plane, unsigned int page_no_per_block, unsigned int max_allowed_block_erase_count)

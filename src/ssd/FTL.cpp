@@ -429,6 +429,8 @@ namespace SSD_Components
 			}//else of if (stat->Type == Utils::Workload_Type::SYNTHETIC)
 			
 			//Step 2: Determine the probability distribution function of valid pages in blocks, in the steady-state.
+			// For trace-based workloads, reflect the decided distribution into decision_dist_type
+			decision_dist_type = stat->Address_distribution_type;
 			//Note: if hot/cold separation is required, then the following estimations should be changed according to Van Houtd's paper in Performance Evaluation 2014.
 			std::vector<double> steadystate_block_status_probability;//The probability distribution function of the number of valid pages in a block in the steadystate
 			double rho = stat->Initial_occupancy_ratio * (1 - over_provisioning_ratio) / (1 - double(GC_and_WL_Unit->Get_minimum_number_of_free_pages_before_GC()) / block_no_per_plane);
@@ -754,6 +756,8 @@ namespace SSD_Components
 	
 	void FTL::Report_results_in_XML(std::string name_prefix, Utils::XmlWriter& xmlwriter)
 	{
+		// Dump page type counts CSV for plotting
+		Stats::Dump_page_type_counts_csv();
 		std::string tmp = name_prefix + ".FTL";
 		xmlwriter.Write_start_element_tag(tmp);
 

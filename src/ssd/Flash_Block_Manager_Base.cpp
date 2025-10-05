@@ -1,4 +1,5 @@
 #include "Flash_Block_Manager.h"
+#include "../exec/Flash_Parameter_Set.h"
 
 
 namespace SSD_Components
@@ -29,7 +30,7 @@ namespace SSD_Components
 						plane_manager[channelID][chipID][dieID][planeID].Blocks = new Block_Pool_Slot_Type[block_no_per_plane];
 						
 						//Initialize block pool for plane
-						for (unsigned int blockID = 0; blockID < block_no_per_plane; blockID++) {
+					for (unsigned int blockID = 0; blockID < block_no_per_plane; blockID++) {
 							plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].BlockID = blockID;
 							plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].Current_page_write_index = 0;
 							plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].Current_status = Block_Service_Status::IDLE;
@@ -40,6 +41,24 @@ namespace SSD_Components
 							plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].Erase_transaction = NULL;
 							plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].Ongoing_user_program_count = 0;
 							plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].Ongoing_user_read_count = 0;
+						// Temperature is set to WARM by default in header; if HOT/WARM, pre-account disabled MSB pages
+						if (plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].Temperature != BlockTemperature::COLD) {
+							unsigned int disabled_pages = 0;
+							if (Flash_Parameter_Set::Flash_Technology == Flash_Technology_Type::MLC) {
+								// MLC: latencyType = pageID % 2; MSB when == 1
+								disabled_pages = pages_no_per_block / 2;
+							} else if (Flash_Parameter_Set::Flash_Technology == Flash_Technology_Type::TLC) {
+								for (unsigned int pid = 0; pid < pages_no_per_block; pid++) {
+									int latencyType = 0;
+									if (pid <= 5) latencyType = 0; // LSB
+									else if (pid <= 7) latencyType = 1; // CSB
+									else latencyType = (((int)pid - 8) >> 1) % 3; // 0: LSB, 1: CSB, 2: MSB
+									if (latencyType == 2) disabled_pages++;
+								}
+							}
+							plane_manager[channelID][chipID][dieID][planeID].Total_pages_count -= disabled_pages;
+							plane_manager[channelID][chipID][dieID][planeID].Free_pages_count -= disabled_pages;
+						}
 							Block_Pool_Slot_Type::Page_vector_size = pages_no_per_block / (sizeof(uint64_t) * 8) + (pages_no_per_block % (sizeof(uint64_t) * 8) == 0 ? 0 : 1);
 							plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].Invalid_page_bitmap = new uint64_t[Block_Pool_Slot_Type::Page_vector_size];
 							for (unsigned int i = 0; i < Block_Pool_Slot_Type::Page_vector_size; i++) {
@@ -236,9 +255,33 @@ namespace SSD_Components
 	
 	bool Flash_Block_Manager_Base::Is_page_valid(Block_Pool_Slot_Type* block, flash_page_ID_type page_id)
 	{
-		if ((block->Invalid_page_bitmap[page_id / 64] & (((uint64_t)1) << page_id)) == 0) {
-			return true;
-		}
-		return false;
+    // Treat disallowed pages in HOT/WARM blocks as invalid for GC/WL purposes
+    if (block->Temperature != BlockTemperature::COLD) {
+        switch (Flash_Parameter_Set::Flash_Technology) {
+        case Flash_Technology_Type::SLC:
+            break; // all allowed
+        case Flash_Technology_Type::MLC:
+        {
+            int latencyType = page_id % 2; // 0: LSB, 1: MSB
+            if (latencyType == 1) return false; // disallow MSB
+            break;
+        }
+        case Flash_Technology_Type::TLC:
+        {
+            int latencyType = 0;
+            if (page_id <= 5) latencyType = 0; // LSB
+            else if (page_id <= 7) latencyType = 1; // CSB
+            else latencyType = (((int)page_id - 8) >> 1) % 3; // 0: LSB, 1: CSB, 2: MSB
+            if (latencyType == 2) return false; // disallow MSB
+            break;
+        }
+        default:
+            break;
+        }
+    }
+    if ((block->Invalid_page_bitmap[page_id / 64] & (((uint64_t)1) << page_id)) == 0) {
+        return true;
+    }
+    return false;
 	}
 }

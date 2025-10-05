@@ -409,6 +409,9 @@ void SSD_Device::Perform_preconditioning(std::vector<Utils::Workload_Statistics 
 		time_t end_time = time(0);
 		uint64_t duration = (uint64_t)difftime(end_time, start_time);
 		PRINT_MESSAGE("Finished preconditioning. Duration of preconditioning: " << duration / 3600 << ":" << (duration % 3600) / 60 << ":" << ((duration % 3600) % 60));
+		// Capture GC baselines after preconditioning
+		SSD_Components::Stats::Baseline_GC_Executions_AfterPreconditioning = SSD_Components::Stats::Total_gc_executions;
+		SSD_Components::Stats::Baseline_GC_Page_Movements_AfterPreconditioning = SSD_Components::Stats::Total_page_movements_for_gc;
 	}
 }
 

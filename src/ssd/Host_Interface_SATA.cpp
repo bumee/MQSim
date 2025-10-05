@@ -1,4 +1,5 @@
 #include "Host_Interface_SATA.h"
+#include "../utils/LpaWriteCounter.h"
 
 namespace SSD_Components
 {
@@ -156,9 +157,10 @@ namespace SSD_Components
 					transaction_size * SECTOR_SIZE_IN_BYTE, lpa, NO_PPA, user_request, 0, access_status_bitmap, CurrentTimeStamp);
 				user_request->Transaction_list.push_back(transaction);
 				input_streams[SATA_STREAM_ID]->STAT_number_of_read_transactions++;
-			} else {//user_request->Type == UserRequestType::WRITE
+            } else {//user_request->Type == UserRequestType::WRITE
 				NVM_Transaction_Flash_WR* transaction = new NVM_Transaction_Flash_WR(Transaction_Source_Type::USERIO, SATA_STREAM_ID,
 					transaction_size * SECTOR_SIZE_IN_BYTE, lpa, user_request, 0, access_status_bitmap, CurrentTimeStamp);
+                LPA_WRITE_COUNTER_ON_WRITE(lpa);
 				user_request->Transaction_list.push_back(transaction);
 				input_streams[SATA_STREAM_ID]->STAT_number_of_write_transactions++;
 			}

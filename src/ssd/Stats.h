@@ -35,6 +35,16 @@ namespace SSD_Components
 		static unsigned int Total_page_movements_for_wl, Total_wl_page_movements_per_stream[MAX_SUPPORT_STREAMS];
 
 		static unsigned int***** Block_erase_histogram;
+
+		// Baselines captured right after preconditioning finishes
+		static unsigned int Baseline_GC_Executions_AfterPreconditioning;
+		static unsigned int Baseline_GC_Page_Movements_AfterPreconditioning;
+
+		// Page type program counts
+		static unsigned long Program_LSB_Count;
+		static unsigned long Program_CSB_Count;
+		static unsigned long Program_MSB_Count;
+		static void Dump_page_type_counts_csv();
 	};
 }
 
