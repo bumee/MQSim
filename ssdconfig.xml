@@ -30,7 +30,7 @@
 		<Plane_Allocation_Scheme>CWDP</Plane_Allocation_Scheme>
 		<Transaction_Scheduling_Policy>PRIORITY_OUT_OF_ORDER</Transaction_Scheduling_Policy>
 		<Overprovisioning_Ratio>0.05</Overprovisioning_Ratio>
-		<GC_Exec_Threshold>0.05000</GC_Exec_Threshold>
+		<GC_Exec_Threshold>0.150000</GC_Exec_Threshold>
 		<GC_Block_Selection_Policy>GREEDY</GC_Block_Selection_Policy>
 		<Use_Copyback_for_GC>false</Use_Copyback_for_GC>
 		<Preemptible_GC_Enabled>false</Preemptible_GC_Enabled>

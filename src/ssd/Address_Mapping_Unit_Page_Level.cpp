@@ -1212,69 +1212,33 @@ namespace SSD_Components
 				SSD_Components::PlaneBookKeepingType* pbke = block_manager->Get_plane_bookkeeping_entry(transaction->Address);
 				SSD_Components::Block_Pool_Slot_Type* wf = pbke->Data_wf[transaction->Stream_id];
 				if (wf->Temperature != SSD_Components::BlockTemperature::WARM) {
-					// search a WARM block in free pool
-					for (auto it = pbke->Free_block_pool.begin(); it != pbke->Free_block_pool.end(); ++it) {
-						if (it->second->Temperature == SSD_Components::BlockTemperature::WARM) {
-							SSD_Components::Block_Pool_Slot_Type* warm_block = it->second;
-							pbke->Free_block_pool.erase(it);
-							warm_block->Stream_id = transaction->Stream_id;
-							warm_block->Holds_mapping_data = false;
-							pbke->Block_usage_history.push(warm_block->BlockID);
-							pbke->Data_wf[transaction->Stream_id] = warm_block;
-							break;
+					// 1) try from per-stream Open_warm_pool first
+					if (!pbke->Open_warm_pool[transaction->Stream_id].empty()) {
+						SSD_Components::Block_Pool_Slot_Type* warm_block = pbke->Open_warm_pool[transaction->Stream_id].back();
+						pbke->Open_warm_pool[transaction->Stream_id].pop_back();
+						warm_block->Stream_id = transaction->Stream_id;
+						warm_block->Holds_mapping_data = false;
+						pbke->Block_usage_history.push(warm_block->BlockID);
+						pbke->Data_wf[transaction->Stream_id] = warm_block;
+					} else {
+						// 2) fallback: search a WARM block in free pool
+						for (auto it = pbke->Free_block_pool.begin(); it != pbke->Free_block_pool.end(); ++it) {
+							if (it->second->Temperature == SSD_Components::BlockTemperature::WARM) {
+								SSD_Components::Block_Pool_Slot_Type* warm_block = it->second;
+								pbke->Free_block_pool.erase(it);
+								warm_block->Stream_id = transaction->Stream_id;
+								warm_block->Holds_mapping_data = false;
+								pbke->Block_usage_history.push(warm_block->BlockID);
+								pbke->Data_wf[transaction->Stream_id] = warm_block;
+								break;
+							}
 						}
 					}
 				}
 			}
         } else {
-            // Existing mapping: if current block is WARM and LPA count >= 5, switch to HOT frontier
-            {
-                SSD_Components::PlaneBookKeepingType* pbke = block_manager->Get_plane_bookkeeping_entry(transaction->Address);
-                SSD_Components::Block_Pool_Slot_Type* wf = pbke->Data_wf[transaction->Stream_id];
-                if (wf->Temperature == SSD_Components::BlockTemperature::WARM) {
-                    if (LpaWriteCounter_Get(transaction->LPA) >= 5) {
-                        bool switched = false;
-                        // Try to find a HOT block first
-                        for (auto it = pbke->Free_block_pool.begin(); it != pbke->Free_block_pool.end(); ++it) {
-                            if (it->second->Temperature == SSD_Components::BlockTemperature::HOT) {
-                                SSD_Components::Block_Pool_Slot_Type* hot_block = it->second;
-                                pbke->Free_block_pool.erase(it);
-                                hot_block->Stream_id = transaction->Stream_id;
-                                hot_block->Holds_mapping_data = false;
-                                pbke->Block_usage_history.push(hot_block->BlockID);
-                                pbke->Data_wf[transaction->Stream_id] = hot_block;
-                                switched = true;
-                                break;
-                            }
-                        }
-                        // If no HOT block, pick best WARM (max invalid pages), convert to HOT, and use it
-                        if (!switched) {
-                            SSD_Components::Block_Pool_Slot_Type* best_warm = NULL;
-                            unsigned int best_invalid = 0;
-                            auto best_it = pbke->Free_block_pool.end();
-                            for (auto it = pbke->Free_block_pool.begin(); it != pbke->Free_block_pool.end(); ++it) {
-                                SSD_Components::Block_Pool_Slot_Type* blk = it->second;
-                                if (blk->Temperature == SSD_Components::BlockTemperature::WARM) {
-                                    if (blk->Invalid_page_count >= best_invalid) {
-                                        best_invalid = blk->Invalid_page_count;
-                                        best_warm = blk;
-                                        best_it = it;
-                                    }
-                                }
-                            }
-                            if (best_warm != NULL) {
-                                pbke->Free_block_pool.erase(best_it);
-                                best_warm->Temperature = SSD_Components::BlockTemperature::HOT;
-                                best_warm->Stream_id = transaction->Stream_id;
-                                best_warm->Holds_mapping_data = false;
-                                pbke->Block_usage_history.push(best_warm->BlockID);
-                                pbke->Data_wf[transaction->Stream_id] = best_warm;
-                            }
-                        }
-                    }
-                }
-            }
-			if (is_for_gc) {
+            // Existing mapping: FIRST invalidate old mapping, THEN consider HOT frontier switch
+            if (is_for_gc) {
 				NVM::FlashMemory::Physical_Page_Address addr;
 				Convert_ppa_to_address(old_ppa, addr);
 				block_manager->Invalidate_page_in_block(transaction->Stream_id, addr);
@@ -1300,6 +1264,148 @@ namespace SSD_Components
 					transaction->RelatedRead = update_read_tr;
 				}
 			}
+            // Now consider switching to HOT/COLD frontier based on dynamic thresholds
+            {
+                SSD_Components::PlaneBookKeepingType* pbke = block_manager->Get_plane_bookkeeping_entry(transaction->Address);
+                SSD_Components::Block_Pool_Slot_Type* wf = pbke->Data_wf[transaction->Stream_id];
+                // 1) HOT 승격: 현재 wf가 HOT이 아니고, LPA가 HOT이면 HOT으로 전환 시도
+                if (wf->Temperature != SSD_Components::BlockTemperature::HOT) {
+                    if (LpaWriteCounter_IsHot_ByPrevWindow(transaction->LPA)) {
+                        bool switched = false;
+                        // First try: take from per-stream HOT open pool
+                        if (!pbke->Open_hot_pool[transaction->Stream_id].empty()) {
+                            auto* hot_block = pbke->Open_hot_pool[transaction->Stream_id].back();
+                            pbke->Open_hot_pool[transaction->Stream_id].pop_back();
+                            hot_block->Stream_id = transaction->Stream_id;
+                            hot_block->Holds_mapping_data = false;
+                            pbke->Block_usage_history.push(hot_block->BlockID);
+                            pbke->Data_wf[transaction->Stream_id] = hot_block;
+                            switched = true;
+                        }
+                        // Fallback: find a HOT block from free pool
+                        if (!switched) {
+                            for (auto it = pbke->Free_block_pool.begin(); it != pbke->Free_block_pool.end(); ++it) {
+                                if (it->second->Temperature == SSD_Components::BlockTemperature::HOT) {
+                                    SSD_Components::Block_Pool_Slot_Type* hot_block = it->second;
+                                    pbke->Free_block_pool.erase(it);
+                                    hot_block->Stream_id = transaction->Stream_id;
+                                    hot_block->Holds_mapping_data = false;
+                                    pbke->Block_usage_history.push(hot_block->BlockID);
+                                    pbke->Data_wf[transaction->Stream_id] = hot_block;
+                                    switched = true;
+                                    // Report HOT/WARM/COLD block counts at the moment of HOT switch
+                                // {
+                                //     unsigned int hot_cnt = 0, warm_cnt = 0, cold_cnt = 0;
+                                //     for (unsigned int b = 0; b < block_manager->block_no_per_plane; b++) {
+                                //         switch (pbke->Blocks[b].Temperature) {
+                                //         case SSD_Components::BlockTemperature::HOT: hot_cnt++; break;
+                                //         case SSD_Components::BlockTemperature::WARM: warm_cnt++; break;
+                                //         case SSD_Components::BlockTemperature::COLD: cold_cnt++; break;
+                                //         }
+                                //     }
+                                //     PRINT_MESSAGE("[HOT switch] Plane @" << transaction->Address.ChannelID << "@" << transaction->Address.ChipID << "@" << transaction->Address.DieID << "@" << transaction->Address.PlaneID
+                                //         << " | HOT=" << hot_cnt << " WARM=" << warm_cnt << " COLD=" << cold_cnt)
+                                // }
+                                // break;
+                                }
+                            }
+                        }
+                        // If no HOT block, pick best WARM (max invalid pages), convert to HOT, and use it
+                        if (!switched) {
+                            SSD_Components::Block_Pool_Slot_Type* best_warm = NULL;
+                            unsigned int best_invalid = 0;
+                            auto best_it = pbke->Free_block_pool.end();
+                            for (auto it = pbke->Free_block_pool.begin(); it != pbke->Free_block_pool.end(); ++it) {
+                                SSD_Components::Block_Pool_Slot_Type* blk = it->second;
+                                if (blk->Temperature == SSD_Components::BlockTemperature::WARM) {
+                                    if (blk->Invalid_page_count >= best_invalid) {
+                                        best_invalid = blk->Invalid_page_count;
+                                        best_warm = blk;
+                                        best_it = it;
+                                    }
+                                }
+                            }
+                            if (best_warm != NULL) {
+                                pbke->Free_block_pool.erase(best_it);
+                                best_warm->Temperature = SSD_Components::BlockTemperature::HOT;
+                                best_warm->Stream_id = transaction->Stream_id;
+                                best_warm->Holds_mapping_data = false;
+                                pbke->Block_usage_history.push(best_warm->BlockID);
+                                pbke->Data_wf[transaction->Stream_id] = best_warm;
+                                // Report HOT/WARM/COLD block counts at the moment of HOT switch
+                                // {
+                                //     unsigned int hot_cnt = 0, warm_cnt = 0, cold_cnt = 0;
+                                //     for (unsigned int b = 0; b < block_manager->block_no_per_plane; b++) {
+                                //         switch (pbke->Blocks[b].Temperature) {
+                                //         case SSD_Components::BlockTemperature::HOT: hot_cnt++; break;
+                                //         case SSD_Components::BlockTemperature::WARM: warm_cnt++; break;
+                                //         case SSD_Components::BlockTemperature::COLD: cold_cnt++; break;
+                                //         }
+                                //     }
+                                //     PRINT_MESSAGE("[HOT switch] Plane @" << transaction->Address.ChannelID << "@" << transaction->Address.ChipID << "@" << transaction->Address.DieID << "@" << transaction->Address.PlaneID
+                                //         << " | HOT=" << hot_cnt << " WARM=" << warm_cnt << " COLD=" << cold_cnt)
+                                // }
+                            }
+                        }
+                    }
+                }
+                // 2) COLD 강등: 현재 wf가 COLD가 아니고, LPA가 COLD이면 COLD으로 전환 시도
+                wf = pbke->Data_wf[transaction->Stream_id];
+                if (wf->Temperature != SSD_Components::BlockTemperature::COLD) {
+                    if (LpaWriteCounter_IsCold_ByPrevWindow(transaction->LPA)) {
+                        bool switched_cold = false;
+                        // First: per-stream COLD open pool
+                        if (!pbke->Open_cold_pool[transaction->Stream_id].empty()) {
+                            auto* cold_block = pbke->Open_cold_pool[transaction->Stream_id].back();
+                            pbke->Open_cold_pool[transaction->Stream_id].pop_back();
+                            cold_block->Stream_id = transaction->Stream_id;
+                            cold_block->Holds_mapping_data = false;
+                            pbke->Block_usage_history.push(cold_block->BlockID);
+                            pbke->Data_wf[transaction->Stream_id] = cold_block;
+                            switched_cold = true;
+                        }
+                        // Next: free pool에서 COLD 블록
+                        if (!switched_cold) {
+                            for (auto it = pbke->Free_block_pool.begin(); it != pbke->Free_block_pool.end(); ++it) {
+                                if (it->second->Temperature == SSD_Components::BlockTemperature::COLD) {
+                                    SSD_Components::Block_Pool_Slot_Type* cold_block = it->second;
+                                    pbke->Free_block_pool.erase(it);
+                                    cold_block->Stream_id = transaction->Stream_id;
+                                    cold_block->Holds_mapping_data = false;
+                                    pbke->Block_usage_history.push(cold_block->BlockID);
+                                    pbke->Data_wf[transaction->Stream_id] = cold_block;
+                                    switched_cold = true;
+                                    break;
+                                }
+                            }
+                        }
+                        // 마지막: WARM을 COLD로 변경해 사용(필요시 MSB 허용은 FTL 할당 경로에서 처리)
+                        if (!switched_cold) {
+                            SSD_Components::Block_Pool_Slot_Type* chosen = NULL;
+                            auto chosen_it = pbke->Free_block_pool.end();
+                            unsigned int min_invalid = UINT32_MAX;
+                            for (auto it = pbke->Free_block_pool.begin(); it != pbke->Free_block_pool.end(); ++it) {
+                                SSD_Components::Block_Pool_Slot_Type* blk = it->second;
+                                if (blk->Temperature == SSD_Components::BlockTemperature::WARM) {
+                                    if (blk->Invalid_page_count <= min_invalid) {
+                                        min_invalid = blk->Invalid_page_count;
+                                        chosen = blk;
+                                        chosen_it = it;
+                                    }
+                                }
+                            }
+                            if (chosen != NULL) {
+                                pbke->Free_block_pool.erase(chosen_it);
+                                chosen->Temperature = SSD_Components::BlockTemperature::COLD;
+                                chosen->Stream_id = transaction->Stream_id;
+                                chosen->Holds_mapping_data = false;
+                                pbke->Block_usage_history.push(chosen->BlockID);
+                                pbke->Data_wf[transaction->Stream_id] = chosen;
+                            }
+                        }
+                    }
+                }
+            }
 		}
 
 		/*The following lines should not be ordered with respect to the block_manager->Invalidate_page_in_block
@@ -1390,7 +1496,7 @@ namespace SSD_Components
                                 pbke_gc->Total_pages_count += add_free;
                                 pbke_gc->Free_pages_count += add_free;
                                 // Rewind write index to earliest freed MSB hole to keep sequential allocation
-                                chosen->Current_page_write_index = 0;
+                                // chosen->Current_page_write_index = 0;
                             }
                             chosen->Temperature = target_temp;
                             chosen->Stream_id = transaction->Stream_id;

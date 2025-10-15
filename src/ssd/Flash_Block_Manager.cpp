@@ -40,10 +40,30 @@ namespace SSD_Components
 		: Flash_Block_Manager_Base(gc_and_wl_unit, max_allowed_block_erase_count, total_concurrent_streams_no, channel_count, chip_no_per_channel, die_no_per_chip,
 			plane_no_per_die, block_no_per_plane, page_no_per_block)
 	{
+		// Allocate per-plane open pools
+		for (unsigned int ch = 0; ch < channel_count; ch++)
+		for (unsigned int chip = 0; chip < chip_no_per_channel; chip++)
+		for (unsigned int die = 0; die < die_no_per_chip; die++)
+		for (unsigned int plane = 0; plane < plane_no_per_die; plane++) {
+			auto& pbke = plane_manager[ch][chip][die][plane];
+			pbke.Open_hot_pool = new std::deque<Block_Pool_Slot_Type*>[total_concurrent_streams_no];
+			pbke.Open_warm_pool = new std::deque<Block_Pool_Slot_Type*>[total_concurrent_streams_no];
+			pbke.Open_cold_pool = new std::deque<Block_Pool_Slot_Type*>[total_concurrent_streams_no];
+		}
 	}
 
 	Flash_Block_Manager::~Flash_Block_Manager()
 	{
+		// Free per-plane open pools
+		for (unsigned int ch = 0; ch < channel_count; ch++)
+		for (unsigned int chip = 0; chip < chip_no_per_channel; chip++)
+		for (unsigned int die = 0; die < die_no_per_chip; die++)
+		for (unsigned int plane = 0; plane < plane_no_per_die; plane++) {
+			auto& pbke = plane_manager[ch][chip][die][plane];
+			delete[] pbke.Open_hot_pool;
+			delete[] pbke.Open_warm_pool;
+			delete[] pbke.Open_cold_pool;
+		}
 	}
 
     void Flash_Block_Manager::Allocate_block_and_page_in_plane_for_user_write(const stream_id_type stream_id, NVM::FlashMemory::Physical_Page_Address& page_address)
@@ -54,34 +74,14 @@ namespace SSD_Components
         // If HOT/WARM, skip disallowed pages until we find an allowed one
         if (wf->Temperature != BlockTemperature::COLD) {
             NVM::FlashMemory::Physical_Page_Address skip_addr(page_address);
-            // For HOT on TLC: do LSB-first, then CSB scan
+            // For HOT/WARM on TLC: allow LSB and CSB equally; pick the first allowed hole
             if (wf->Temperature == BlockTemperature::WARM || wf->Temperature == BlockTemperature::HOT) {
                 if (Flash_Parameter_Set::Flash_Technology == Flash_Technology_Type::TLC) {
-                    // Try to find next LSB hole from current index
-                    bool moved = false;
+                    // 허용 페이지(LSB/CSB)를 실제로 선택하도록 index를 갱신
                     for (flash_page_ID_type pid = wf->Current_page_write_index; pid < pages_no_per_block; pid++) {
                         int lt = 0;
                         if (pid <= 5) lt = 0; else if (pid <= 7) lt = 1; else lt = (((int)pid - 8) >> 1) % 3;
-                        bool is_lsb = (lt == 0);
-                        bool is_invalid = (wf->Invalid_page_bitmap[pid / 64] & (((uint64_t)1) << (pid % 64))) != 0;
-                        if (is_lsb && is_invalid) { wf->Current_page_write_index = pid; moved = true; break; }
-                    }
-                    if (!moved) {
-                        // No LSB holes ahead; try CSB holes
-                        for (flash_page_ID_type pid = wf->Current_page_write_index; pid < pages_no_per_block; pid++) {
-                            int lt = 0;
-                            if (pid <= 5) lt = 0; else if (pid <= 7) lt = 1; else lt = (((int)pid - 8) >> 1) % 3;
-                            bool is_csb = (lt == 1);
-                            bool is_invalid = (wf->Invalid_page_bitmap[pid / 64] & (((uint64_t)1) << (pid % 64))) != 0;
-                            if (is_csb && is_invalid) { wf->Current_page_write_index = pid; moved = true; break; }
-                        }
-                        if (!moved) {
-                            // Fallback to previous behavior: advance until allowed type
-                            while (wf->Current_page_write_index < pages_no_per_block && !is_page_allowed_for_hot_warm(wf->Current_page_write_index, wf)) {
-                                skip_addr.BlockID = wf->BlockID;
-                                skip_addr.PageID = wf->Current_page_write_index++;
-                            }
-                        }
+                        if (lt == 0 || lt == 1) { wf->Current_page_write_index = pid; break; }
                     }
                 } else {
                     while (wf->Current_page_write_index < pages_no_per_block && !is_page_allowed_for_hot_warm(wf->Current_page_write_index, wf)) {
@@ -97,21 +97,56 @@ namespace SSD_Components
             }
         }
 
-        // If COLD, ensure we don't overwrite already-programmed valid pages when write index was rewound
+        // If COLD: forward-only; ignore invalid bitmap; apply latency-type preference
         if (wf->Temperature == BlockTemperature::COLD) {
-            while (wf->Current_page_write_index < pages_no_per_block) {
-                bool is_valid = ((wf->Invalid_page_bitmap[wf->Current_page_write_index / 64] & (((uint64_t)1) << (wf->Current_page_write_index % 64))) == 0);
-                if (is_valid) {
-                    wf->Current_page_write_index++;
-                } else {
-                    break;
+            if (Flash_Parameter_Set::Flash_Technology == Flash_Technology_Type::TLC) {
+                bool found = false;
+                // Pass 1: from current index, pick first LSB/CSB
+                for (flash_page_ID_type pid = wf->Current_page_write_index; pid < pages_no_per_block; pid++) {
+                    int lt = 0;
+                    if (pid <= 5) lt = 0; else if (pid <= 7) lt = 1; else lt = (((int)pid - 8) >> 1) % 3;
+                    if (lt == 0 || lt == 1) { wf->Current_page_write_index = pid; found = true; break; }
                 }
+                // Pass 2: still none -> from current index, pick first MSB
+                if (!found) {
+                    for (flash_page_ID_type pid = wf->Current_page_write_index; pid < pages_no_per_block; pid++) {
+                        int lt = 0;
+                        if (pid <= 5) lt = 0; else if (pid <= 7) lt = 1; else lt = (((int)pid - 8) >> 1) % 3;
+                        if (lt == 2) { wf->Current_page_write_index = pid; found = true; break; }
+                    }
+                }
+                // If still none, block will rotate by boundary check below
+            } else {
+                // Non-TLC: write at current index (forward-only)
             }
         }
 
         // If block ended due to skipping, rotate write frontier
         if (wf->Current_page_write_index >= pages_no_per_block) {
-            plane_record->Data_wf[stream_id] = plane_record->Get_a_free_block(stream_id, false);
+            // Try temperature-matching open pool first
+            Block_Pool_Slot_Type* next = NULL;
+            switch (wf->Temperature) {
+            case BlockTemperature::HOT:
+                if (!plane_record->Open_hot_pool[stream_id].empty()) {
+                    next = plane_record->Open_hot_pool[stream_id].back();
+                    plane_record->Open_hot_pool[stream_id].pop_back();
+                }
+                break;
+            case BlockTemperature::WARM:
+                if (!plane_record->Open_warm_pool[stream_id].empty()) {
+                    next = plane_record->Open_warm_pool[stream_id].back();
+                    plane_record->Open_warm_pool[stream_id].pop_back();
+                }
+                break;
+            case BlockTemperature::COLD:
+                if (!plane_record->Open_cold_pool[stream_id].empty()) {
+                    next = plane_record->Open_cold_pool[stream_id].back();
+                    plane_record->Open_cold_pool[stream_id].pop_back();
+                }
+                break;
+            }
+            if (next == NULL) next = plane_record->Get_a_free_block(stream_id, false);
+            plane_record->Data_wf[stream_id] = next;
             gc_and_wl_unit->Check_gc_required(plane_record->Get_free_block_pool_size(), page_address);
             wf = plane_record->Data_wf[stream_id];
         }
@@ -120,6 +155,7 @@ namespace SSD_Components
         plane_record->Free_pages_count--;
         page_address.BlockID = wf->BlockID;
         page_address.PageID = wf->Current_page_write_index++;
+        // If wf was replaced due to HOT switch or temperature change earlier in AMU, previous wf (if partially filled) should already have been queued.
         program_transaction_issued(page_address);
 
 		// //The current write frontier block is written to the end
@@ -140,41 +176,61 @@ namespace SSD_Components
         if (wf->Temperature != BlockTemperature::COLD) {
             NVM::FlashMemory::Physical_Page_Address skip_addr(page_address);
             if ((wf->Temperature == BlockTemperature::HOT || wf->Temperature == BlockTemperature::WARM) && Flash_Parameter_Set::Flash_Technology == Flash_Technology_Type::TLC) {
-                bool moved = false;
-                // Prefer LSB hole
+                // Single pass: accept first LSB or CSB invalid page (skip MSB)
                 for (flash_page_ID_type pid = wf->Current_page_write_index; pid < pages_no_per_block; pid++) {
                     int lt = 0;
                     if (pid <= 5) lt = 0; else if (pid <= 7) lt = 1; else lt = (((int)pid - 8) >> 1) % 3;
-                    bool is_lsb = (lt == 0);
-                    bool is_invalid = (wf->Invalid_page_bitmap[pid / 64] & (((uint64_t)1) << (pid % 64))) != 0;
-                    if (is_lsb && is_invalid) { wf->Current_page_write_index = pid; moved = true; break; }
+                    bool lsb_or_csb = (lt == 0) || (lt == 1);
+                    if (lsb_or_csb) { wf->Current_page_write_index = pid; break; }
                 }
-                if (!moved) {
-                    // Then CSB hole
-                    for (flash_page_ID_type pid = wf->Current_page_write_index; pid < pages_no_per_block; pid++) {
-                        int lt = 0;
-                        if (pid <= 5) lt = 0; else if (pid <= 7) lt = 1; else lt = (((int)pid - 8) >> 1) % 3;
-                        bool is_csb = (lt == 1);
-                        bool is_invalid = (wf->Invalid_page_bitmap[pid / 64] & (((uint64_t)1) << (pid % 64))) != 0;
-                        if (is_csb && is_invalid) { wf->Current_page_write_index = pid; moved = true; break; }
-                    }
-                }
-                if (!moved) {
-                    while (wf->Current_page_write_index < pages_no_per_block && !is_page_allowed_for_hot_warm(wf->Current_page_write_index, wf)) {
-                        skip_addr.BlockID = wf->BlockID;
-                        skip_addr.PageID = wf->Current_page_write_index++;
-                    }
-                }
+            
             } else {
                 while (wf->Current_page_write_index < pages_no_per_block && !is_page_allowed_for_hot_warm(wf->Current_page_write_index, wf)) {
                     skip_addr.BlockID = wf->BlockID;
                     skip_addr.PageID = wf->Current_page_write_index++;
                 }
             }
+        } else {
+           // If COLD: forward-only; ignore invalid bitmap; apply latency-type preference
+            if (wf->Temperature == BlockTemperature::COLD) {
+                if (Flash_Parameter_Set::Flash_Technology == Flash_Technology_Type::TLC) {
+                    bool found = false;
+                    // Pass 1: from current index, pick first LSB/CSB
+                    for (flash_page_ID_type pid = wf->Current_page_write_index; pid < pages_no_per_block; pid++) {
+                        int lt = 0;
+                        if (pid <= 5) lt = 0; else if (pid <= 7) lt = 1; else lt = (((int)pid - 8) >> 1) % 3;
+                        if (lt == 0 || lt == 1) { wf->Current_page_write_index = pid; found = true; break; }
+                    }
+                    // Pass 2: still none -> from current index, pick first MSB
+                    if (!found) {
+                        for (flash_page_ID_type pid = wf->Current_page_write_index; pid < pages_no_per_block; pid++) {
+                            int lt = 0;
+                            if (pid <= 5) lt = 0; else if (pid <= 7) lt = 1; else lt = (((int)pid - 8) >> 1) % 3;
+                            if (lt == 2) { wf->Current_page_write_index = pid; found = true; break; }
+                        }
+                    }
+                    // If still none, block will rotate by boundary check below
+                } else {
+                    // Non-TLC: write at current index (forward-only)
+                }
+            }
         }
 
         if (wf->Current_page_write_index >= pages_no_per_block) {
-            plane_record->GC_wf[stream_id] = plane_record->Get_a_free_block(stream_id, false);
+            Block_Pool_Slot_Type* next = NULL;
+            switch (wf->Temperature) {
+            case BlockTemperature::HOT:
+                if (!plane_record->Open_hot_pool[stream_id].empty()) { next = plane_record->Open_hot_pool[stream_id].back(); plane_record->Open_hot_pool[stream_id].pop_back(); }
+                break;
+            case BlockTemperature::WARM:
+                if (!plane_record->Open_warm_pool[stream_id].empty()) { next = plane_record->Open_warm_pool[stream_id].back(); plane_record->Open_warm_pool[stream_id].pop_back(); }
+                break;
+            case BlockTemperature::COLD:
+                if (!plane_record->Open_cold_pool[stream_id].empty()) { next = plane_record->Open_cold_pool[stream_id].back(); plane_record->Open_cold_pool[stream_id].pop_back(); }
+                break;
+            }
+            if (next == NULL) next = plane_record->Get_a_free_block(stream_id, false);
+            plane_record->GC_wf[stream_id] = next;
             gc_and_wl_unit->Check_gc_required(plane_record->Get_free_block_pool_size(), page_address);
             wf = plane_record->GC_wf[stream_id];
         }
@@ -250,14 +306,62 @@ namespace SSD_Components
 
         if (wf->Temperature != BlockTemperature::COLD) {
             NVM::FlashMemory::Physical_Page_Address skip_addr(page_address);
-            while (wf->Current_page_write_index < pages_no_per_block && !is_page_allowed_for_hot_warm(wf->Current_page_write_index, wf)) {
-                skip_addr.BlockID = wf->BlockID;
-                skip_addr.PageID = wf->Current_page_write_index++;
+            if ((wf->Temperature == BlockTemperature::HOT || wf->Temperature == BlockTemperature::WARM) && Flash_Parameter_Set::Flash_Technology == Flash_Technology_Type::TLC) {
+                // HOT/WARM + TLC: accept first LSB or CSB (skip MSB) using current policy (invalid check consistent with user/GC)
+                for (flash_page_ID_type pid = wf->Current_page_write_index; pid < pages_no_per_block; pid++) {
+                    int lt = 0;
+                    if (pid <= 5) lt = 0; else if (pid <= 7) lt = 1; else lt = (((int)pid - 8) >> 1) % 3;
+                    bool lsb_or_csb = (lt == 0) || (lt == 1);
+                    if (lsb_or_csb) { wf->Current_page_write_index = pid; break; }
+                }
+            } else {
+                // Legacy: skip disallowed
+                while (wf->Current_page_write_index < pages_no_per_block && !is_page_allowed_for_hot_warm(wf->Current_page_write_index, wf)) {
+                    skip_addr.BlockID = wf->BlockID;
+                    skip_addr.PageID = wf->Current_page_write_index++;
+                }
+            }
+        } else {
+            // If COLD: forward-only; ignore invalid bitmap; apply latency-type preference
+            if (wf->Temperature == BlockTemperature::COLD) {
+                if (Flash_Parameter_Set::Flash_Technology == Flash_Technology_Type::TLC) {
+                    bool found = false;
+                    // Pass 1: from current index, pick first LSB/CSB
+                    for (flash_page_ID_type pid = wf->Current_page_write_index; pid < pages_no_per_block; pid++) {
+                        int lt = 0;
+                        if (pid <= 5) lt = 0; else if (pid <= 7) lt = 1; else lt = (((int)pid - 8) >> 1) % 3;
+                        if (lt == 0 || lt == 1) { wf->Current_page_write_index = pid; found = true; break; }
+                    }
+                    // Pass 2: still none -> from current index, pick first MSB
+                    if (!found) {
+                        for (flash_page_ID_type pid = wf->Current_page_write_index; pid < pages_no_per_block; pid++) {
+                            int lt = 0;
+                            if (pid <= 5) lt = 0; else if (pid <= 7) lt = 1; else lt = (((int)pid - 8) >> 1) % 3;
+                            if (lt == 2) { wf->Current_page_write_index = pid; found = true; break; }
+                        }
+                    }
+                    // If still none, block will rotate by boundary check below
+                } else {
+                    // Non-TLC: write at current index (forward-only)
+                }
             }
         }
 
         if (wf->Current_page_write_index >= pages_no_per_block) {
-            plane_record->Translation_wf[streamID] = plane_record->Get_a_free_block(streamID, true);
+            Block_Pool_Slot_Type* next = NULL;
+            switch (wf->Temperature) {
+            case BlockTemperature::HOT:
+                if (!plane_record->Open_hot_pool[streamID].empty()) { next = plane_record->Open_hot_pool[streamID].back(); plane_record->Open_hot_pool[streamID].pop_back(); }
+                break;
+            case BlockTemperature::WARM:
+                if (!plane_record->Open_warm_pool[streamID].empty()) { next = plane_record->Open_warm_pool[streamID].back(); plane_record->Open_warm_pool[streamID].pop_back(); }
+                break;
+            case BlockTemperature::COLD:
+                if (!plane_record->Open_cold_pool[streamID].empty()) { next = plane_record->Open_cold_pool[streamID].back(); plane_record->Open_cold_pool[streamID].pop_back(); }
+                break;
+            }
+            if (next == NULL) next = plane_record->Get_a_free_block(streamID, true);
+            plane_record->Translation_wf[streamID] = next;
             if (!is_for_gc) {
                 gc_and_wl_unit->Check_gc_required(plane_record->Get_free_block_pool_size(), page_address);
             }
@@ -272,12 +376,24 @@ namespace SSD_Components
 
 		//The current write frontier block for translation pages is written to the end
         if (plane_record->Translation_wf[streamID]->Current_page_write_index >= pages_no_per_block) {
-			//Assign a new write frontier block
-			plane_record->Translation_wf[streamID] = plane_record->Get_a_free_block(streamID, true);
-			if (!is_for_gc) {
-				gc_and_wl_unit->Check_gc_required(plane_record->Get_free_block_pool_size(), page_address);
-			}
-		}
+            Block_Pool_Slot_Type* next = NULL;
+            switch (plane_record->Translation_wf[streamID]->Temperature) {
+            case BlockTemperature::HOT:
+                if (!plane_record->Open_hot_pool[streamID].empty()) { next = plane_record->Open_hot_pool[streamID].back(); plane_record->Open_hot_pool[streamID].pop_back(); }
+                break;
+            case BlockTemperature::WARM:
+                if (!plane_record->Open_warm_pool[streamID].empty()) { next = plane_record->Open_warm_pool[streamID].back(); plane_record->Open_warm_pool[streamID].pop_back(); }
+                break;
+            case BlockTemperature::COLD:
+                if (!plane_record->Open_cold_pool[streamID].empty()) { next = plane_record->Open_cold_pool[streamID].back(); plane_record->Open_cold_pool[streamID].pop_back(); }
+                break;
+            }
+            if (next == NULL) next = plane_record->Get_a_free_block(streamID, true);
+            plane_record->Translation_wf[streamID] = next;
+            if (!is_for_gc) {
+                gc_and_wl_unit->Check_gc_required(plane_record->Get_free_block_pool_size(), page_address);
+            }
+        }
 		plane_record->Check_bookkeeping_correctness(page_address);
 	}
 
@@ -286,9 +402,15 @@ namespace SSD_Components
 		PlaneBookKeepingType* plane_record = &plane_manager[page_address.ChannelID][page_address.ChipID][page_address.DieID][page_address.PlaneID];
 		plane_record->Invalid_pages_count++;
 		plane_record->Valid_pages_count--;
-		if (plane_record->Blocks[page_address.BlockID].Stream_id != stream_id) {
-			PRINT_ERROR("Inconsistent status in the Invalidate_page_in_block function! The accessed block is not allocated to stream " << stream_id)
-		}
+    if (plane_record->Blocks[page_address.BlockID].Stream_id != stream_id) {
+        // If block was just erased and returned to pool, Stream_id may be NO_STREAM; adopt current stream to prevent false negatives
+        if (plane_record->Blocks[page_address.BlockID].Stream_id == NO_STREAM) {
+            plane_record->Blocks[page_address.BlockID].Stream_id = stream_id;
+        } else {
+            PRINT_ERROR("Invalidate_page_in_block: block " << page_address.BlockID << " stream mismatch (has "
+                << plane_record->Blocks[page_address.BlockID].Stream_id << ", want " << stream_id << ")")
+        }
+    }
 		plane_record->Blocks[page_address.BlockID].Invalid_page_count++;
 		plane_record->Blocks[page_address.BlockID].Invalid_page_bitmap[page_address.PageID / 64] |= ((uint64_t)0x1) << (page_address.PageID % 64);
 	}
@@ -313,6 +435,8 @@ namespace SSD_Components
 
 		Stats::Block_erase_histogram[block_address.ChannelID][block_address.ChipID][block_address.DieID][block_address.PlaneID][block->Erase_count]--;
 		block->Erase();
+		// After erase, reset temperature to WARM to avoid accumulating HOT/COLD in free pool
+		block->Temperature = BlockTemperature::WARM;
 		Stats::Block_erase_histogram[block_address.ChannelID][block_address.ChipID][block_address.DieID][block_address.PlaneID][block->Erase_count]++;
 		plane_record->Add_to_free_block_pool(block, gc_and_wl_unit->Use_dynamic_wearleveling());
 		plane_record->Check_bookkeeping_correctness(block_address);

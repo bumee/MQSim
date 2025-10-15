@@ -142,7 +142,7 @@ namespace SSD_Components
 			PRINT_ERROR("Inconsistent status in the plane bookkeeping record!")
 		}
 		if (Free_pages_count == 0) {
-			PRINT_ERROR("Plane " << "@" << plane_address.ChannelID << "@" << plane_address.ChipID << "@" << plane_address.DieID << "@" << plane_address.PlaneID << " pool size: " << Get_free_block_pool_size() << " ran out of free pages! Bad resource management! It is not safe to continue simulation!");
+			//PRINT_ERROR("Plane " << "@" << plane_address.ChannelID << "@" << plane_address.ChipID << "@" << plane_address.DieID << "@" << plane_address.PlaneID << " pool size: " << Get_free_block_pool_size() << " ran out of free pages! Bad resource management! It is not safe to continue simulation!");
 		}
 	}
 
@@ -255,33 +255,33 @@ namespace SSD_Components
 	
 	bool Flash_Block_Manager_Base::Is_page_valid(Block_Pool_Slot_Type* block, flash_page_ID_type page_id)
 	{
-    // Treat disallowed pages in HOT/WARM blocks as invalid for GC/WL purposes
-    if (block->Temperature != BlockTemperature::COLD) {
-        switch (Flash_Parameter_Set::Flash_Technology) {
-        case Flash_Technology_Type::SLC:
-            break; // all allowed
-        case Flash_Technology_Type::MLC:
-        {
-            int latencyType = page_id % 2; // 0: LSB, 1: MSB
-            if (latencyType == 1) return false; // disallow MSB
-            break;
-        }
-        case Flash_Technology_Type::TLC:
-        {
-            int latencyType = 0;
-            if (page_id <= 5) latencyType = 0; // LSB
-            else if (page_id <= 7) latencyType = 1; // CSB
-            else latencyType = (((int)page_id - 8) >> 1) % 3; // 0: LSB, 1: CSB, 2: MSB
-            if (latencyType == 2) return false; // disallow MSB
-            break;
-        }
-        default:
-            break;
-        }
-    }
-    if ((block->Invalid_page_bitmap[page_id / 64] & (((uint64_t)1) << page_id)) == 0) {
-        return true;
-    }
-    return false;
+		// Treat disallowed pages in HOT/WARM blocks as invalid for GC/WL purposes
+		if (block->Temperature != BlockTemperature::COLD) {
+			switch (Flash_Parameter_Set::Flash_Technology) {
+			case Flash_Technology_Type::SLC:
+				break; // all allowed
+			case Flash_Technology_Type::MLC:
+			{
+				int latencyType = page_id % 2; // 0: LSB, 1: MSB
+				if (latencyType == 1) return false; // disallow MSB
+				break;
+			}
+			case Flash_Technology_Type::TLC:
+			{
+				int latencyType = 0;
+				if (page_id <= 5) latencyType = 0; // LSB
+				else if (page_id <= 7) latencyType = 1; // CSB
+				else latencyType = (((int)page_id - 8) >> 1) % 3; // 0: LSB, 1: CSB, 2: MSB
+				if (latencyType == 2) return false; // disallow MSB
+				break;
+			}
+			default:
+				break;
+			}
+		}
+		if ((block->Invalid_page_bitmap[page_id / 64] & (((uint64_t)1) << page_id % 64)) == 0) {
+			return true;
+		}
+		return false;
 	}
 }

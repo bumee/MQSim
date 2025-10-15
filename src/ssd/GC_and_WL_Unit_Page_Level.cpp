@@ -140,7 +140,7 @@ namespace SSD_Components
 			Block_Pool_Slot_Type* block = &pbke->Blocks[gc_candidate_block_id];
 
 			//No invalid page to erase
-			if (block->Current_page_write_index == 0 || block->Invalid_page_count == 0) {
+			if (block->Invalid_page_count == 0) {
 				return;
 			}
 			

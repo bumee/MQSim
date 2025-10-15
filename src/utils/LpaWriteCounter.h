@@ -19,6 +19,11 @@ extern void LpaWriteCounter_ResetOne(LPA_type lpa);
 extern void LpaWriteCounter_ResetAll();
 extern uint64_t LpaWriteCounter_Get(LPA_type lpa);
 extern void LpaWriteCounter_TryPeriodicReset(sim_time_type now);
+// Dynamic threshold from the immediately previous window (top-40% cutoff of counts)
+extern uint64_t LpaWriteCounter_GetPrevWindowThreshold();
+extern bool LpaWriteCounter_IsHot_ByPrevWindow(LPA_type lpa);
+extern uint64_t LpaWriteCounter_GetPrevWindowColdThreshold();
+extern bool LpaWriteCounter_IsCold_ByPrevWindow(LPA_type lpa);
 #define LPA_WRITE_COUNTER_ON_WRITE(LPA_VAL) LpaWriteCounter_OnWrite(LPA_VAL)
 #else
 #define LPA_WRITE_COUNTER_ON_WRITE(LPA_VAL) do {} while (0)
