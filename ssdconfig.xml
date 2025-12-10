@@ -30,11 +30,11 @@
 		<Plane_Allocation_Scheme>CWDP</Plane_Allocation_Scheme>
 		<Transaction_Scheduling_Policy>PRIORITY_OUT_OF_ORDER</Transaction_Scheduling_Policy>
 		<Overprovisioning_Ratio>0.05</Overprovisioning_Ratio>
-		<GC_Exec_Threshold>0.150000</GC_Exec_Threshold>
+		<GC_Exec_Threshold>0.850000</GC_Exec_Threshold>
 		<GC_Block_Selection_Policy>GREEDY</GC_Block_Selection_Policy>
 		<Use_Copyback_for_GC>false</Use_Copyback_for_GC>
 		<Preemptible_GC_Enabled>false</Preemptible_GC_Enabled>
-		<GC_Hard_Threshold>0.005000</GC_Hard_Threshold>
+		<GC_Hard_Threshold>0.995000</GC_Hard_Threshold>
 		<Dynamic_Wearleveling_Enabled>true</Dynamic_Wearleveling_Enabled>
 		<Static_Wearleveling_Enabled>true</Static_Wearleveling_Enabled>
 		<Static_Wearleveling_Threshold>100</Static_Wearleveling_Threshold>
@@ -62,7 +62,7 @@
 			<Die_No_Per_Chip>2</Die_No_Per_Chip>
 			<Plane_No_Per_Die>2</Plane_No_Per_Die>
 			<Block_No_Per_Plane>256</Block_No_Per_Plane>
-			<Page_No_Per_Block>2048</Page_No_Per_Block>
+			<Page_No_Per_Block>512</Page_No_Per_Block>
 			<Page_Capacity>8192</Page_Capacity>
 			<Page_Metadat_Capacity>448</Page_Metadat_Capacity>
 		</Flash_Parameter_Set>

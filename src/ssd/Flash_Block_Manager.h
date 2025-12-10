@@ -24,6 +24,9 @@ namespace SSD_Components
 		void Add_erased_block_to_pool(const NVM::FlashMemory::Physical_Page_Address& address);
 		unsigned int Get_pool_size(const NVM::FlashMemory::Physical_Page_Address& plane_address);
 	private:
+		unsigned long Get_total_block_count() const;
+		unsigned int Sum_pool_entries(std::deque<Block_Pool_Slot_Type*>* pool_array) const;
+		void Log_pool_status(const char* label, const PlaneBookKeepingType* plane_record) const;
 	};
 }
 

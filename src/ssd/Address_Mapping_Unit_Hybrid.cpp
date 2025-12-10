@@ -22,6 +22,7 @@ namespace SSD_Components
 	void Address_Mapping_Unit_Hybrid::Translate_lpa_to_ppa_and_dispatch(const std::list<NVM_Transaction*>& transaction_list) {}
 	void Address_Mapping_Unit_Hybrid::Get_data_mapping_info_for_gc(const stream_id_type stream_id, const LPA_type lpa, PPA_type& ppa, page_status_type& page_state) {}
 	void Address_Mapping_Unit_Hybrid::Get_translation_mapping_info_for_gc(const stream_id_type stream_id, const MVPN_type mvpn, MPPN_type& mppa, sim_time_type& timestamp) {}
+	LPA_type Address_Mapping_Unit_Hybrid::Get_lpa_from_ppa(stream_id_type stream_id, PPA_type ppa) { return NO_LPA; }
 
 	PPA_type Address_Mapping_Unit_Hybrid::online_create_entry_for_reads(LPA_type lpa, const stream_id_type stream_id, NVM::FlashMemory::Physical_Page_Address& read_address, uint64_t read_sectors_bitmap) { return 0; }
 

@@ -10,14 +10,17 @@
 #include "utils/rapidxml/rapidxml.hpp"
 #include "utils/DistributionTypes.h"
 #include "ssd/Stats.h"
+#include "utils/HotLpaList.h"
 
 using namespace std;
 
 
-void command_line_args(char* argv[], string& input_file_path, string& workload_file_path)
+void command_line_args(int argc, char* argv[], string& input_file_path, string& workload_file_path, string& hot_lpa_file_path)
 {
+	hot_lpa_file_path = ""; // 기본값: 빈 문자열 (자동 탐지)
 
-	for (int arg_cntr = 1; arg_cntr < 5; arg_cntr++) {
+	for (int arg_cntr = 1; arg_cntr < 10; arg_cntr++) {
+		if (arg_cntr >= argc) break;
 		string arg = argv[arg_cntr];
 
 		char file_path_switch[] = "-i";
@@ -31,6 +34,13 @@ void command_line_args(char* argv[], string& input_file_path, string& workload_f
 		if (arg.compare(0, strlen(workload_path_switch), workload_path_switch) == 0) {
 			workload_file_path.assign(argv[++arg_cntr]);
 			//cout << workload_file_path << endl;
+			continue;
+		}
+
+		char hot_lpa_switch[] = "-h";
+		if (arg.compare(0, strlen(hot_lpa_switch), hot_lpa_switch) == 0) {
+			hot_lpa_file_path.assign(argv[++arg_cntr]);
+			//cout << hot_lpa_file_path << endl;
 			continue;
 		}
 	}
@@ -255,19 +265,24 @@ void print_help()
 {
 	cout << "MQSim - SSD simulator with both NVMe and SATA host interface behavior, see ReadMe.md for details" << endl <<
 		"Standalone Usage:" << endl <<
-		"./MQSim [-i path/to/config/file] [-w path/to/workload/file]" << endl;
+		"./MQSim [-i path/to/config/file] [-w path/to/workload/file] [-h path/to/hot_lpa/file]" << endl;
 }
 
 int main(int argc, char* argv[])
 {
-	string ssd_config_file_path, workload_defs_file_path;
-	if (argc != 5) {
-		// MQSim expects 2 arguments: 1) the path to the SSD configuration definition file, and 2) the path to the workload definition file
+	string ssd_config_file_path, workload_defs_file_path, hot_lpa_file_path;
+	if (argc < 5) {
+		// MQSim expects at least 2 arguments: 1) the path to the SSD configuration definition file, and 2) the path to the workload definition file
 		print_help();
 		return 1;
 	}
 
-	command_line_args(argv, ssd_config_file_path, workload_defs_file_path);
+	command_line_args(argc, argv, ssd_config_file_path, workload_defs_file_path, hot_lpa_file_path);
+	
+	// Hot LPA 리스트 로드 (파일 경로가 지정된 경우)
+	if (!hot_lpa_file_path.empty()) {
+		SSD_Components::HotLpaList::LoadFromFile(hot_lpa_file_path);
+	}
 
 	Execution_Parameter_Set* exec_params = new Execution_Parameter_Set;
 	read_configuration_parameters(ssd_config_file_path, exec_params);
@@ -280,6 +295,9 @@ int main(int argc, char* argv[])
 		PRINT_MESSAGE("MQSim started at " << dt)
 		PRINT_MESSAGE("******************************")
 		PRINT_MESSAGE("Executing scenario " << cntr << " out of " << io_scenarios->size() << " .......")
+
+		// 워크로드 파일 경로를 Stats에 설정 (로그 파일명 생성용)
+		SSD_Components::Stats::SetWorkloadPath(workload_defs_file_path);
 
 		//The simulator should always be reset, before starting the actual simulation
 		Simulator->Reset();
@@ -312,6 +330,7 @@ int main(int argc, char* argv[])
 
 		PRINT_MESSAGE("Writing results to output file .......");
 		collect_results(ssd, host, (workload_defs_file_path.substr(0, workload_defs_file_path.find_last_of(".")) + "_scenario_" + std::to_string(cntr) + ".xml").c_str());
+		SSD_Components::Stats::Dump_page_type_counts_csv();
 	}
     cout << "Simulation complete; Press any key to exit." << endl;
 

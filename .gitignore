@@ -1,10 +1,15 @@
 MQSim
 build/
+model/
 traces/
+plots/
+workloads/
 *.png
 tools/
 *.csv
 *.py
 *.log
+*.xml
+*.txt
 
 

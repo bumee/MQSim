@@ -151,9 +151,11 @@ namespace SSD_Components
 		unsigned int Get_cmt_capacity();
 		unsigned int Get_current_cmt_occupancy_for_stream(stream_id_type stream_id);
 		void Translate_lpa_to_ppa_and_dispatch(const std::list<NVM_Transaction*>& transactionList);
-		void Get_data_mapping_info_for_gc(const stream_id_type stream_id, const LPA_type lpa, PPA_type& ppa, page_status_type& page_state);
-		void Get_translation_mapping_info_for_gc(const stream_id_type stream_id, const MVPN_type mvpn, MPPN_type& mppa, sim_time_type& timestamp);
-		void Allocate_new_page_for_gc(NVM_Transaction_Flash_WR* transaction, bool is_translation_page);
+	void Get_data_mapping_info_for_gc(const stream_id_type stream_id, const LPA_type lpa, PPA_type& ppa, page_status_type& page_state);
+	void Get_translation_mapping_info_for_gc(const stream_id_type stream_id, const MVPN_type mvpn, MPPN_type& mppa, sim_time_type& timestamp);
+	void Allocate_new_page_for_gc(NVM_Transaction_Flash_WR* transaction, bool is_translation_page);
+	// Get LPA from PPA (for GC statistics)
+	LPA_type Get_lpa_from_ppa(stream_id_type stream_id, PPA_type ppa);
 
 		void Store_mapping_table_on_flash_at_start();
 		LPA_type Get_logical_pages_count(stream_id_type stream_id);

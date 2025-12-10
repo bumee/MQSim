@@ -112,10 +112,19 @@ namespace Host_Components
 		sim_time_type next_logging_milestone;
 		std::string logging_file_path;
 		std::ofstream log_file;
+		
+		// Individual request logging (for Hot LPA only)
+		std::ofstream individual_request_log_file;
+		bool enabled_individual_logging;
 		uint32_t Get_device_response_time_short_term();//in microseconds
 		uint32_t Get_end_to_end_request_delay_short_term();//in microseconds
 		sim_time_type STAT_sum_device_response_time_short_term, STAT_sum_request_delay_short_term;
 		unsigned int STAT_serviced_request_count_short_term;
+
+		// Hot Statistics
+		unsigned int STAT_serviced_hot_request_count_short_term;
+		sim_time_type STAT_sum_hot_device_response_time_short_term;
+		uint32_t Get_hot_device_response_time_short_term(); //in microseconds
 
 	};
 }

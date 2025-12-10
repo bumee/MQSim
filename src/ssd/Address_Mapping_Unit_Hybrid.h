@@ -26,6 +26,7 @@ namespace SSD_Components
 		void Get_data_mapping_info_for_gc(const stream_id_type stream_id, const LPA_type lpa, PPA_type& ppa, page_status_type& page_state);
 		void Get_translation_mapping_info_for_gc(const stream_id_type stream_id, const MVPN_type mvpn, MPPN_type& mppa, sim_time_type& timestamp);
 		void Allocate_new_page_for_gc(NVM_Transaction_Flash_WR* transaction, bool is_translation_page);
+		LPA_type Get_lpa_from_ppa(stream_id_type stream_id, PPA_type ppa);
 
 		void Store_mapping_table_on_flash_at_start();
 		LPA_type Get_logical_pages_count(stream_id_type stream_id);

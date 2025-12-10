@@ -191,7 +191,10 @@ namespace SSD_Components
 			write_transfer_info->next_event_type = Data_Cache_Simulation_Event_Type::MEMORY_WRITE_FOR_USERIO_FINISHED;
 			write_transfer_info->Stream_id = user_request->Stream_id;
 			service_dram_access_request(write_transfer_info);
-		}
+		} else {
+            delete evicted_cache_slots;
+        }
+
 
 		//If any writeback should be performed, then issue flash write transactions
 		if (writeback_transactions.size() > 0) {

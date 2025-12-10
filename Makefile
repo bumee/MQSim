@@ -1,5 +1,6 @@
 CC        := g++
 LD        := g++
+TARGET    := MQSim_ORA
 CC_FLAGS := -std=c++11 -O3 -g
 
 MODULES   := exec host nvm_chip nvm_chip/flash_memory sim ssd utils
@@ -20,9 +21,9 @@ endef
 
 .PHONY: all checkdirs clean
 
-all: checkdirs MQSim
+all: checkdirs $(TARGET)
 
-MQSim: $(OBJ)
+$(TARGET): $(OBJ)
 	$(LD) $^ -o $@
 
 checkdirs: $(BUILD_DIR)
@@ -32,6 +33,6 @@ $(BUILD_DIR):
 
 clean:
 	rm -rf $(BUILD_DIR)
-	rm -f MQSim
+	rm -f $(TARGET)
 
 $(foreach bdir,$(BUILD_DIR),$(eval $(call make-goal,$(bdir))))

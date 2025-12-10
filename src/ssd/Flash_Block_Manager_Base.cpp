@@ -1,5 +1,7 @@
 #include "Flash_Block_Manager.h"
 #include "../exec/Flash_Parameter_Set.h"
+#include "Stats.h"
+#include "../sim/Engine.h"
 
 
 namespace SSD_Components
@@ -35,6 +37,7 @@ namespace SSD_Components
 							plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].Current_page_write_index = 0;
 							plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].Current_status = Block_Service_Status::IDLE;
 							plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].Invalid_page_count = 0;
+							plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].Reported_full = false;
 							plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].Erase_count = 0;
 							plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].Holds_mapping_data = false;
 							plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].Has_ongoing_gc_wl = false;
@@ -42,23 +45,7 @@ namespace SSD_Components
 							plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].Ongoing_user_program_count = 0;
 							plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].Ongoing_user_read_count = 0;
 						// Temperature is set to WARM by default in header; if HOT/WARM, pre-account disabled MSB pages
-						if (plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].Temperature != BlockTemperature::COLD) {
-							unsigned int disabled_pages = 0;
-							if (Flash_Parameter_Set::Flash_Technology == Flash_Technology_Type::MLC) {
-								// MLC: latencyType = pageID % 2; MSB when == 1
-								disabled_pages = pages_no_per_block / 2;
-							} else if (Flash_Parameter_Set::Flash_Technology == Flash_Technology_Type::TLC) {
-								for (unsigned int pid = 0; pid < pages_no_per_block; pid++) {
-									int latencyType = 0;
-									if (pid <= 5) latencyType = 0; // LSB
-									else if (pid <= 7) latencyType = 1; // CSB
-									else latencyType = (((int)pid - 8) >> 1) % 3; // 0: LSB, 1: CSB, 2: MSB
-									if (latencyType == 2) disabled_pages++;
-								}
-							}
-							plane_manager[channelID][chipID][dieID][planeID].Total_pages_count -= disabled_pages;
-							plane_manager[channelID][chipID][dieID][planeID].Free_pages_count -= disabled_pages;
-						}
+						
 							Block_Pool_Slot_Type::Page_vector_size = pages_no_per_block / (sizeof(uint64_t) * 8) + (pages_no_per_block % (sizeof(uint64_t) * 8) == 0 ? 0 : 1);
 							plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID].Invalid_page_bitmap = new uint64_t[Block_Pool_Slot_Type::Page_vector_size];
 							for (unsigned int i = 0; i < Block_Pool_Slot_Type::Page_vector_size; i++) {
@@ -66,6 +53,7 @@ namespace SSD_Components
 							}
 							plane_manager[channelID][chipID][dieID][planeID].Add_to_free_block_pool(&plane_manager[channelID][chipID][dieID][planeID].Blocks[blockID], false);
 						}
+						plane_manager[channelID][chipID][dieID][planeID].Fully_written_block_count = 0;
 						plane_manager[channelID][chipID][dieID][planeID].Data_wf = new Block_Pool_Slot_Type*[total_concurrent_streams_no];
 						plane_manager[channelID][chipID][dieID][planeID].Translation_wf = new Block_Pool_Slot_Type*[total_concurrent_streams_no];
 						plane_manager[channelID][chipID][dieID][planeID].GC_wf = new Block_Pool_Slot_Type*[total_concurrent_streams_no];
@@ -116,6 +104,7 @@ namespace SSD_Components
 		for (unsigned int i = 0; i < Block_Pool_Slot_Type::Page_vector_size; i++) {
 			Invalid_page_bitmap[i] = All_VALID_PAGE;
 		}
+		Reported_full = false;
 		Stream_id = NO_STREAM;
 		Holds_mapping_data = false;
 		Erase_transaction = NULL;
@@ -124,10 +113,10 @@ namespace SSD_Components
 	Block_Pool_Slot_Type* PlaneBookKeepingType::Get_a_free_block(stream_id_type stream_id, bool for_mapping_data)
 	{
 		Block_Pool_Slot_Type* new_block = NULL;
-		new_block = (*Free_block_pool.begin()).second;//Assign a new write frontier block
 		if (Free_block_pool.size() == 0) {
 			PRINT_ERROR("Requesting a free block from an empty pool!")
 		}
+		new_block = (*Free_block_pool.begin()).second;//Assign a new write frontier block
 		Free_block_pool.erase(Free_block_pool.begin());
 		new_block->Stream_id = stream_id;
 		new_block->Holds_mapping_data = for_mapping_data;
@@ -142,7 +131,7 @@ namespace SSD_Components
 			PRINT_ERROR("Inconsistent status in the plane bookkeeping record!")
 		}
 		if (Free_pages_count == 0) {
-			//PRINT_ERROR("Plane " << "@" << plane_address.ChannelID << "@" << plane_address.ChipID << "@" << plane_address.DieID << "@" << plane_address.PlaneID << " pool size: " << Get_free_block_pool_size() << " ran out of free pages! Bad resource management! It is not safe to continue simulation!");
+			PRINT_ERROR("Plane " << "@" << plane_address.ChannelID << "@" << plane_address.ChipID << "@" << plane_address.DieID << "@" << plane_address.PlaneID << " pool size: " << Get_free_block_pool_size() << " ran out of free pages! Bad resource management! It is not safe to continue simulation!");
 		}
 	}
 
@@ -221,6 +210,18 @@ namespace SSD_Components
 	{
 		PlaneBookKeepingType *plane_record = &plane_manager[page_address.ChannelID][page_address.ChipID][page_address.DieID][page_address.PlaneID];
 		plane_record->Blocks[page_address.BlockID].Ongoing_user_program_count++;
+
+		if (Flash_Parameter_Set::Flash_Technology == Flash_Technology_Type::TLC) {
+			int latencyType = 0;
+			flash_page_ID_type page_id = page_address.PageID;
+			if (page_id <= 5) latencyType = 0; // LSB
+			else if (page_id <= 7) latencyType = 1; // CSB
+			else latencyType = (((int)page_id - 8) >> 1) % 3; // 0: LSB, 1: CSB, 2: MSB
+			
+			if (latencyType == 0) Stats::Program_LSB_Count++;
+			else if (latencyType == 1) Stats::Program_CSB_Count++;
+			else Stats::Program_MSB_Count++;
+		}
 	}
 	
 	void Flash_Block_Manager_Base::Read_transaction_issued(const NVM::FlashMemory::Physical_Page_Address& page_address)
@@ -251,20 +252,51 @@ namespace SSD_Components
 	{
 		PlaneBookKeepingType *plane_record = &plane_manager[block_address.ChannelID][block_address.ChipID][block_address.DieID][block_address.PlaneID];
 		plane_record->Blocks[block_address.BlockID].Has_ongoing_gc_wl = false;
+        Stats::Record_GC_End(Simulator->Time());
+	}
+	
+	unsigned int Flash_Block_Manager_Base::Get_fully_written_block_count(const NVM::FlashMemory::Physical_Page_Address& plane_address) const
+	{
+		return plane_manager[plane_address.ChannelID][plane_address.ChipID][plane_address.DieID][plane_address.PlaneID].Fully_written_block_count;
+	}
+
+	unsigned long Flash_Block_Manager_Base::Get_total_fully_written_block_count() const
+	{
+		unsigned long total = 0;
+		for (unsigned int channelID = 0; channelID < channel_count; channelID++) {
+			for (unsigned int chipID = 0; chipID < chip_no_per_channel; chipID++) {
+				for (unsigned int dieID = 0; dieID < die_no_per_chip; dieID++) {
+					for (unsigned int planeID = 0; planeID < plane_no_per_die; planeID++) {
+						total += plane_manager[channelID][chipID][dieID][planeID].Fully_written_block_count;
+					}
+				}
+			}
+		}
+		return total;
 	}
 	
 	bool Flash_Block_Manager_Base::Is_page_valid(Block_Pool_Slot_Type* block, flash_page_ID_type page_id)
 	{
-		// Treat disallowed pages in HOT/WARM blocks as invalid for GC/WL purposes
+		// 실제 유효성만 판단: 온도나 레이턴시 타입과 무관하게 비트맵 기준
+		if ((block->Invalid_page_bitmap[page_id / 64] & (((uint64_t)1) << page_id % 64)) == 0) {
+			return true;
+		}
+		return false;
+	}
+
+	bool Flash_Block_Manager_Base::Should_consider_page_for_gc(const Block_Pool_Slot_Type* block, flash_page_ID_type page_id) const
+	{
+		//baseline 실험
+		//return true;
+		// HOT/WARM에서는 MSB 페이지를 GC 대상으로 고려하지 않도록 필터링
 		if (block->Temperature != BlockTemperature::COLD) {
 			switch (Flash_Parameter_Set::Flash_Technology) {
 			case Flash_Technology_Type::SLC:
-				break; // all allowed
+				return true;
 			case Flash_Technology_Type::MLC:
 			{
 				int latencyType = page_id % 2; // 0: LSB, 1: MSB
-				if (latencyType == 1) return false; // disallow MSB
-				break;
+				return latencyType == 0;
 			}
 			case Flash_Technology_Type::TLC:
 			{
@@ -272,16 +304,50 @@ namespace SSD_Components
 				if (page_id <= 5) latencyType = 0; // LSB
 				else if (page_id <= 7) latencyType = 1; // CSB
 				else latencyType = (((int)page_id - 8) >> 1) % 3; // 0: LSB, 1: CSB, 2: MSB
-				if (latencyType == 2) return false; // disallow MSB
-				break;
+				return latencyType != 2; // MSB 제외
 			}
 			default:
-				break;
+				return true;
 			}
 		}
-		if ((block->Invalid_page_bitmap[page_id / 64] & (((uint64_t)1) << page_id % 64)) == 0) {
-			return true;
+		// COLD는 전체 페이지 고려
+		return true;
+	}
+
+	bool Flash_Block_Manager_Base::Has_allowed_pages_remaining(Block_Pool_Slot_Type* block) const
+	{
+		if (block == NULL) {
+			PRINT_ERROR("Block is NULL!")
+			return false;
 		}
-		return false;
+
+		// Check if block has any pages remaining
+		if (block->Current_page_write_index >= pages_no_per_block) {
+			return false;
+		}
+
+		// For HOT/WARM blocks, check if there's at least one allowed page remaining
+		if (block->Temperature != BlockTemperature::COLD) {
+			for (flash_page_ID_type pid = block->Current_page_write_index; pid < pages_no_per_block; pid++) {
+				if (Should_consider_page_for_gc(block, pid)) {
+					return true;
+				}
+			}
+			return false;
+		}
+
+		// For COLD blocks, any remaining page is allowed
+		return true;
+	}
+
+	void Flash_Block_Manager_Base::Check_gc_required_for_plane(const NVM::FlashMemory::Physical_Page_Address& plane_address)
+	{
+		if (gc_and_wl_unit != NULL) {
+			PlaneBookKeepingType* pbke = Get_plane_bookkeeping_entry(plane_address);
+			if (pbke->Free_pages_count <= pages_no_per_block || pbke->Get_free_block_pool_size() <= 4) {
+				//Log_plane_status(pbke, plane_address, "GC_Check");
+			}
+			gc_and_wl_unit->Check_gc_required(pbke->Fully_written_block_count, plane_address);
+		}
 	}
 }

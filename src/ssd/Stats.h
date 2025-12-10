@@ -2,6 +2,7 @@
 #define STATS_H
 
 #include "SSD_Defs.h"
+#include <string>
 
 namespace SSD_Components
 {
@@ -45,6 +46,24 @@ namespace SSD_Components
 		static unsigned long Program_CSB_Count;
 		static unsigned long Program_MSB_Count;
 		static void Dump_page_type_counts_csv();
+
+        // GC Event Logging
+        static FILE* gc_log_file;
+        static void Init_GC_Log();
+        static void Record_GC_Start(double time);
+        static void Record_GC_End(double time);
+        static void Close_GC_Log();
+        
+        // Block Pool Hot/Cold Ratio Logging
+        static FILE* blockpool_hotcold_log_file;
+        static std::string workload_file_path;
+        static void SetWorkloadPath(const std::string& path);
+        static void Init_BlockPool_HotCold_Log();
+        static void Record_BlockPool_HotCold_Ratio(double time, 
+            unsigned int hot_pool_hot_pages, unsigned int hot_pool_cold_pages, unsigned int hot_pool_total_pages,
+            unsigned int warm_pool_hot_pages, unsigned int warm_pool_cold_pages, unsigned int warm_pool_total_pages,
+            unsigned int cold_pool_hot_pages, unsigned int cold_pool_cold_pages, unsigned int cold_pool_total_pages);
+        static void Close_BlockPool_HotCold_Log();
 	};
 }
 

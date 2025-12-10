@@ -71,8 +71,9 @@ namespace SSD_Components
 							//address_mapping_unit->Lock_physical_block_for_gc(gc_candidate_address);//Lock the block, so no user request can intervene while the GC is progressing
 							NVM_Transaction_Flash_RD* gc_wl_read = NULL;
 							NVM_Transaction_Flash_WR* gc_wl_write = NULL;
+							//flash_page_ID_type upper = block->Current_page_write_index < _my_instance->pages_no_per_block ? block->Current_page_write_index : _my_instance->pages_no_per_block;
 							for (flash_page_ID_type pageID = 0; pageID < block->Current_page_write_index; pageID++) {
-								if (_my_instance->block_manager->Is_page_valid(block, pageID)) {
+								if (_my_instance->block_manager->Is_page_valid(block, pageID) && _my_instance->block_manager->Should_consider_page_for_gc(block, pageID)) {
 									Stats::Total_page_movements_for_gc++;
 									gc_wl_candidate_address.PageID = pageID;
 									if (_my_instance->use_copyback) {
@@ -160,7 +161,8 @@ namespace SSD_Components
 				_my_instance->address_mapping_unit->Start_servicing_writes_for_overfull_plane(transaction->Address);//Must be inovked after above statements since it may lead to flash page consumption for waiting program transactions
 
 				if (_my_instance->Stop_servicing_writes(transaction->Address)) {
-					_my_instance->Check_gc_required(pbke->Get_free_block_pool_size(), transaction->Address);
+					PlaneBookKeepingType* pbke = &(_my_instance->block_manager->plane_manager[transaction->Address.ChannelID][transaction->Address.ChipID][transaction->Address.DieID][transaction->Address.PlaneID]);
+					_my_instance->Check_gc_required(pbke->Fully_written_block_count, transaction->Address);
 				}
 				break;
 			} //switch (transaction->Type)
@@ -271,8 +273,9 @@ namespace SSD_Components
 			if (block->Current_page_write_index - block->Invalid_page_count > 0) {//If there are some valid pages in block, then prepare flash transactions for page movement
 				NVM_Transaction_Flash_RD* wl_read = NULL;
 				NVM_Transaction_Flash_WR* wl_write = NULL;
-				for (flash_page_ID_type pageID = 0; pageID < block->Current_page_write_index; pageID++) {
-					if (block_manager->Is_page_valid(block, pageID)) {
+				flash_page_ID_type upper = block->Current_page_write_index < pages_no_per_block ? block->Current_page_write_index : pages_no_per_block;
+				for (flash_page_ID_type pageID = 0; pageID < upper; pageID++) {
+					if (block_manager->Is_page_valid(block, pageID) && block_manager->Should_consider_page_for_gc(block, pageID)) {
 						Stats::Total_page_movements_for_gc;
 						wl_candidate_address.PageID = pageID;
 						if (use_copyback) {

@@ -1,6 +1,11 @@
 #include "IO_Flow_Base.h"
 #include "../ssd/Host_Interface_Defs.h"
 #include "../sim/Engine.h"
+#include "../ssd/Stats.h"
+#include "../ssd/SSD_Defs.h"
+#include "../exec/Flash_Parameter_Set.h"
+#include "../utils/LpaWriteCounter.h"
+#include "../utils/HotLpaList.h"
 
 namespace Host_Components
 {
@@ -114,6 +119,9 @@ IO_Flow_Base::IO_Flow_Base(const sim_object_id_type &name, uint16_t flow_id, LHA
 	IO_Flow_Base::~IO_Flow_Base()
 	{
 		log_file.close();
+		if (individual_request_log_file.is_open()) {
+			individual_request_log_file.close();
+		}
 		for(auto &req : waiting_requests) {
 			if (req) {
 				delete req;
@@ -142,9 +150,27 @@ IO_Flow_Base::IO_Flow_Base(const sim_object_id_type &name, uint16_t flow_id, LHA
 		if (enabled_logging) {
 			log_file.open(logging_file_path, std::ofstream::out);
 		}
-		log_file << "SimulationTime(us)\t" << "ReponseTime(us)\t" << "EndToEndDelay(us)"<< std::endl;
+    	log_file << "SimulationTime(us)\t" << "ReponseTime(us)\t" << "EndToEndDelay(us)\tWAF\tHotResponseTime(us)" << std::endl;
+		
+		// 개별 Hot LPA 요청 로그 파일 열기 (Hot LPA 리스트가 로드된 경우만)
+		enabled_individual_logging = false;
+		if (SSD_Components::HotLpaList::GetHotLpaCount() > 0 && enabled_logging) {
+			std::string individual_log_path = logging_file_path;
+			size_t last_dot = individual_log_path.find_last_of(".");
+			if (last_dot != std::string::npos) {
+				individual_log_path = individual_log_path.substr(0, last_dot) + "_hot_requests" + individual_log_path.substr(last_dot);
+			} else {
+				individual_log_path += "_hot_requests";
+			}
+			individual_request_log_file.open(individual_log_path, std::ofstream::out);
+			individual_request_log_file << "SimulationTime(us)\tLPA\tResponseTime(us)" << std::endl;
+			enabled_individual_logging = true;
+		}
+		
 		STAT_sum_device_response_time_short_term = 0;
 		STAT_serviced_request_count_short_term = 0;
+		STAT_sum_hot_device_response_time_short_term = 0;
+		STAT_serviced_hot_request_count_short_term = 0;
 	}
 
 	void IO_Flow_Base::SATA_consume_io_request(Host_IO_Request* request)
@@ -156,6 +182,30 @@ IO_Flow_Base::IO_Flow_Base(const sim_object_id_type &name, uint16_t flow_id, LHA
 		STAT_serviced_request_count_short_term++;
 		STAT_sum_device_response_time += device_response_time;
 		STAT_sum_device_response_time_short_term += device_response_time;
+
+		// Check if Hot: Convert LHA to LPA
+		LPA_type lpa = (LPA_type)(request->Start_LBA * SECTOR_SIZE_IN_BYTE / Flash_Parameter_Set::Page_Capacity);
+		bool is_hot = false;
+		// 실제 Hot LPA 리스트가 로드되어 있으면 그것을 사용, 없으면 LpaWriteCounter 사용
+		if (SSD_Components::HotLpaList::GetHotLpaCount() > 0) {
+			if (SSD_Components::HotLpaList::IsHot(lpa)) {
+				is_hot = true;
+				STAT_serviced_hot_request_count_short_term++;
+				STAT_sum_hot_device_response_time_short_term += device_response_time;
+			}
+		// } else if (LpaWriteCounter_IsHot_ByPrevWindow(lpa)) {
+		// 	is_hot = true;
+		// 	STAT_serviced_hot_request_count_short_term++;
+		// 	STAT_sum_hot_device_response_time_short_term += device_response_time;
+		}
+		
+		// 개별 Hot LPA 요청 로그 기록
+		if (enabled_individual_logging && is_hot) {
+			individual_request_log_file << Simulator->Time() / SIM_TIME_TO_MICROSECONDS_COEFF << "\t" 
+			                            << lpa << "\t" 
+			                            << device_response_time / SIM_TIME_TO_MICROSECONDS_COEFF << std::endl;
+		}
+
 		STAT_sum_request_delay += request_delay;
 		STAT_sum_request_delay_short_term += request_delay;
 		if (device_response_time > STAT_max_device_response_time) {
@@ -235,11 +285,17 @@ IO_Flow_Base::IO_Flow_Base(const sim_object_id_type &name, uint16_t flow_id, LHA
 				next_progress_step += 5;
 		}
 
-		if (Simulator->Time() > next_logging_milestone) {
-			log_file << Simulator->Time() / SIM_TIME_TO_MICROSECONDS_COEFF << "\t" << Get_device_response_time_short_term() << "\t" << Get_end_to_end_request_delay_short_term() << std::endl;
+        if (Simulator->Time() > next_logging_milestone) {
+            // Compute WAF over entire run so far: (host writes + GC copies) / host writes
+            double host_write_bytes = (double)STAT_transferred_bytes_write;
+            double gc_copy_bytes = (double)SSD_Components::Stats::Total_page_movements_for_gc * (double)Flash_Parameter_Set::Page_Capacity;
+            double waf = host_write_bytes > 0 ? (host_write_bytes + gc_copy_bytes) / host_write_bytes : 1.0;
+            log_file << Simulator->Time() / SIM_TIME_TO_MICROSECONDS_COEFF << "\t" << Get_device_response_time_short_term() << "\t" << Get_end_to_end_request_delay_short_term() << "\t" << waf << "\t" << Get_hot_device_response_time_short_term() << std::endl;
 			STAT_sum_device_response_time_short_term = 0;
 			STAT_sum_request_delay_short_term = 0;
 			STAT_serviced_request_count_short_term = 0;
+			STAT_sum_hot_device_response_time_short_term = 0;
+			STAT_serviced_hot_request_count_short_term = 0;
 			next_logging_milestone = Simulator->Time() + logging_period;
 		}
 	}
@@ -257,6 +313,30 @@ IO_Flow_Base::IO_Flow_Base(const sim_object_id_type &name, uint16_t flow_id, LHA
 
 		STAT_sum_device_response_time += device_response_time;
 		STAT_sum_device_response_time_short_term += device_response_time;
+
+		// Check if Hot: Convert LHA to LPA
+		LPA_type lpa = (LPA_type)(request->Start_LBA * SECTOR_SIZE_IN_BYTE / Flash_Parameter_Set::Page_Capacity);
+		bool is_hot = false;
+		// 실제 Hot LPA 리스트가 로드되어 있으면 그것을 사용, 없으면 LpaWriteCounter 사용
+		if (SSD_Components::HotLpaList::GetHotLpaCount() > 0) {
+			if (SSD_Components::HotLpaList::IsHot(lpa)) {
+				is_hot = true;
+				STAT_serviced_hot_request_count_short_term++;
+				STAT_sum_hot_device_response_time_short_term += device_response_time;
+			}
+		// } else if (LpaWriteCounter_IsHot_ByPrevWindow(lpa)) {
+		// 	is_hot = true;
+		// 	STAT_serviced_hot_request_count_short_term++;
+		// 	STAT_sum_hot_device_response_time_short_term += device_response_time;
+		}
+		
+		// 개별 Hot LPA 요청 로그 기록
+		if (enabled_individual_logging && is_hot) {
+			individual_request_log_file << Simulator->Time() / SIM_TIME_TO_MICROSECONDS_COEFF << "\t" 
+			                            << lpa << "\t" 
+			                            << device_response_time / SIM_TIME_TO_MICROSECONDS_COEFF << std::endl;
+		}
+
 		STAT_sum_request_delay += request_delay;
 		STAT_sum_request_delay_short_term += request_delay;
 		if (device_response_time > STAT_max_device_response_time) {
@@ -364,11 +444,17 @@ IO_Flow_Base::IO_Flow_Base(const sim_object_id_type &name, uint16_t flow_id, LHA
 			next_progress_step += 5;
 		}
 
-		if (Simulator->Time() > next_logging_milestone) {
-			log_file << Simulator->Time() / SIM_TIME_TO_MICROSECONDS_COEFF << "\t" << Get_device_response_time_short_term() << "\t" << Get_end_to_end_request_delay_short_term() << std::endl;
+        if (Simulator->Time() > next_logging_milestone) {
+            // Compute WAF over entire run so far: (host writes + GC copies) / host writes
+            double host_write_bytes = (double)STAT_transferred_bytes_write;
+            double gc_copy_bytes = (double)SSD_Components::Stats::Total_page_movements_for_gc * (double)Flash_Parameter_Set::Page_Capacity;
+            double waf = host_write_bytes > 0 ? (host_write_bytes + gc_copy_bytes) / host_write_bytes : 1.0;
+            log_file << Simulator->Time() / SIM_TIME_TO_MICROSECONDS_COEFF << "\t" << Get_device_response_time_short_term() << "\t" << Get_end_to_end_request_delay_short_term() << "\t" << waf << "\t" << Get_hot_device_response_time_short_term() << std::endl;
 			STAT_sum_device_response_time_short_term = 0;
 			STAT_sum_request_delay_short_term = 0;
 			STAT_serviced_request_count_short_term = 0;
+			STAT_sum_hot_device_response_time_short_term = 0;
+			STAT_serviced_hot_request_count_short_term = 0;
 			next_logging_milestone = Simulator->Time() + logging_period;
 		}
 	}
@@ -509,6 +595,15 @@ IO_Flow_Base::IO_Flow_Base(const sim_object_id_type &name, uint16_t flow_id, LHA
 		}
 
 		return (uint32_t)(STAT_sum_device_response_time_short_term / STAT_serviced_request_count_short_term / SIM_TIME_TO_MICROSECONDS_COEFF);
+	}
+
+	uint32_t IO_Flow_Base::Get_hot_device_response_time_short_term()
+	{
+		if (STAT_serviced_hot_request_count_short_term == 0) {
+			return 0;
+		}
+
+		return (uint32_t)(STAT_sum_hot_device_response_time_short_term / STAT_serviced_hot_request_count_short_term / SIM_TIME_TO_MICROSECONDS_COEFF);
 	}
 
 	uint32_t IO_Flow_Base::Get_end_to_end_request_delay_short_term()

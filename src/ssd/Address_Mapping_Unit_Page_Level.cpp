@@ -4,9 +4,11 @@
 
 #include "Address_Mapping_Unit_Page_Level.h"
 #include "../utils/LpaWriteCounter.h"
+#include "../utils/HotLpaList.h"
 #include "../exec/Flash_Parameter_Set.h"
 #include "Stats.h"
 #include "../utils/Logical_Address_Partitioning_Unit.h"
+#include "../sim/Engine.h"
 
 namespace SSD_Components
 {
@@ -655,78 +657,56 @@ namespace SSD_Components
 						plane_address.DieID = domains[stream_id]->Die_ids[die_cntr];
 						plane_address.PlaneID = domains[stream_id]->Plane_ids[plane_cntr];
 
-                        // Compute allowed pages per block based on flash technology (HOT/WARM disallow MSB)
-                        unsigned int allowed_pages_per_block = pages_no_per_block;
-                        if (Flash_Parameter_Set::Flash_Technology == Flash_Technology_Type::MLC) {
-                            allowed_pages_per_block = pages_no_per_block / 2; // allow LSB only
-                        } else if (Flash_Parameter_Set::Flash_Technology == Flash_Technology_Type::TLC) {
-                            unsigned int msb_count = 0;
-                            for (unsigned int pid = 0; pid < pages_no_per_block; pid++) {
-                                int lt = 0;
-                                if (pid <= 5) lt = 0; else if (pid <= 7) lt = 1; else lt = (((int)pid - 8) >> 1) % 3;
-                                if (lt == 2) msb_count++;
-                            }
-                            allowed_pages_per_block = pages_no_per_block - msb_count; // allow LSB+CSB
-                        }
 
-                        // Base goal by GC threshold and plane share
-                        unsigned int base_goal = (unsigned int)(double(block_no_per_plane - ftl->GC_and_WL_Unit->Get_minimum_number_of_free_pages_before_GC() / 2)
-                            * Utils::Logical_Address_Partitioning_Unit::Get_share_of_physcial_pages_in_plane(plane_address.ChannelID, plane_address.ChipID, plane_address.DieID, plane_address.PlaneID));
+						unsigned int physical_block_consumption_goal = (unsigned int)(double(block_no_per_plane - ftl->GC_and_WL_Unit->Get_minimum_number_of_free_pages_before_GC() / 2)
+						* Utils::Logical_Address_Partitioning_Unit::Get_share_of_physcial_pages_in_plane(plane_address.ChannelID, plane_address.ChipID, plane_address.DieID, plane_address.PlaneID));
 
-                        // Ensure enough blocks to host all LPAs under allowed pages constraint
-                        unsigned int lpas_in_plane = (unsigned int)assigned_lpas[plane_address.ChannelID][plane_address.ChipID][plane_address.DieID][plane_address.PlaneID].size();
-                        unsigned int required_blocks_for_allowed = allowed_pages_per_block == 0 ? 0 : (unsigned int)((lpas_in_plane + allowed_pages_per_block - 1) / allowed_pages_per_block);
-                        unsigned int physical_block_consumption_goal = std::max(base_goal, required_blocks_for_allowed);
-
-                        //Adjust the average
+						//Adjust the average
 						double model_average = 0;
 						std::vector<double> adjusted_steady_state_distribution;
 						//Check if probability distribution is correct 
-                        for (unsigned int i = 0; i <= pages_no_per_block; i++) {
-                            unsigned int eff_i = std::min((unsigned int)i, allowed_pages_per_block);
-                            model_average += steady_state_distribution[i] * double(eff_i) / double(std::max(1u, allowed_pages_per_block));
+						for (unsigned int i = 0; i <= pages_no_per_block; i++) {
+							model_average += steady_state_distribution[i] * double(i) / double(pages_no_per_block);
 							adjusted_steady_state_distribution.push_back(steady_state_distribution[i]);
 						}
-                        double real_average = double(assigned_lpas[plane_address.ChannelID][plane_address.ChipID][plane_address.DieID][plane_address.PlaneID].size()) / (double(std::max(1u, physical_block_consumption_goal)) * double(std::max(1u, allowed_pages_per_block)));
-                        if (std::abs(model_average - real_average) * double(std::max(1u, allowed_pages_per_block)) > 0.9999) {
-                            int displacement_index = int((real_average - model_average) * double(std::max(1u, allowed_pages_per_block)));
+						double real_average = double(assigned_lpas[plane_address.ChannelID][plane_address.ChipID][plane_address.DieID][plane_address.PlaneID].size()) / (physical_block_consumption_goal * pages_no_per_block);
+						if (std::abs(model_average - real_average) * pages_no_per_block > 0.9999) {
+							int displacement_index = int((real_average - model_average) * pages_no_per_block);
 							if (displacement_index > 0) {
 								for (int i = 0; i < displacement_index; i++) {
 									adjusted_steady_state_distribution[i] = 0;
 								}
-                                for (int i = displacement_index; i < int(pages_no_per_block); i++) {
+								for (int i = displacement_index; i < int(pages_no_per_block); i++) {
 									adjusted_steady_state_distribution[i] = steady_state_distribution[i - displacement_index];
 								}
 							} else {
 								displacement_index *= -1;
-                                for (int i = 0; i < int(pages_no_per_block) - displacement_index; i++) {
+								for (int i = 0; i < int(pages_no_per_block) - displacement_index; i++) {
 									adjusted_steady_state_distribution[i] = steady_state_distribution[i + displacement_index];
 								}
-                                for (int i = int(pages_no_per_block) - displacement_index; i < int(pages_no_per_block); i++) {
+								for (int i = int(pages_no_per_block) - displacement_index; i < int(pages_no_per_block); i++) {
 									adjusted_steady_state_distribution[i] = 0;
 								}
 							}
 						}
 
 						//Check if it is possible to find a PPA for each LPA with current proability assignments 
-                        unsigned int total_valid_pages = 0;
-                        for (int valid_pages_in_block = pages_no_per_block; valid_pages_in_block >= 0; valid_pages_in_block--) {
-                            unsigned int eff_valid = std::min((unsigned int)valid_pages_in_block, allowed_pages_per_block);
-                            total_valid_pages += eff_valid * (unsigned int)(adjusted_steady_state_distribution[valid_pages_in_block] * physical_block_consumption_goal);
+						unsigned int total_valid_pages = 0;
+						for (int valid_pages_in_block = pages_no_per_block; valid_pages_in_block >= 0; valid_pages_in_block--) {
+							total_valid_pages += valid_pages_in_block * (unsigned int)(adjusted_steady_state_distribution[valid_pages_in_block] * physical_block_consumption_goal);
 						}
 						unsigned int pages_need_PPA = 0;//The number of LPAs that remain unassigned due to imperfect probability assignments
-                        if (total_valid_pages < assigned_lpas[plane_address.ChannelID][plane_address.ChipID][plane_address.DieID][plane_address.PlaneID].size()) {
-                            pages_need_PPA = (unsigned int)(assigned_lpas[plane_address.ChannelID][plane_address.ChipID][plane_address.DieID][plane_address.PlaneID].size()) - total_valid_pages;
+						if (total_valid_pages < assigned_lpas[plane_address.ChannelID][plane_address.ChipID][plane_address.DieID][plane_address.PlaneID].size()) {
+							pages_need_PPA = (unsigned int)(assigned_lpas[plane_address.ChannelID][plane_address.ChipID][plane_address.DieID][plane_address.PlaneID].size()) - total_valid_pages;
 						}
 						
 						unsigned int remaining_blocks_to_consume = physical_block_consumption_goal;
-                        for (int valid_pages_in_block = pages_no_per_block; valid_pages_in_block >= 0; valid_pages_in_block--) {
-                            unsigned int eff_valid = std::min((unsigned int)valid_pages_in_block, allowed_pages_per_block);
-                            unsigned int block_no_with_x_valid_page = (unsigned int)(adjusted_steady_state_distribution[valid_pages_in_block] * physical_block_consumption_goal);
-                            if (block_no_with_x_valid_page > 0 && pages_need_PPA > 0 && eff_valid > 0) {
-                                block_no_with_x_valid_page += (pages_need_PPA / eff_valid) + (pages_need_PPA % eff_valid == 0 ? 0 : 1);
-                                pages_need_PPA = 0;
-                            }
+						for (int valid_pages_in_block = pages_no_per_block; valid_pages_in_block >= 0; valid_pages_in_block--) {
+							unsigned int block_no_with_x_valid_page = (unsigned int)(adjusted_steady_state_distribution[valid_pages_in_block] * physical_block_consumption_goal);
+							if (block_no_with_x_valid_page > 0 && pages_need_PPA > 0) {
+								block_no_with_x_valid_page += (pages_need_PPA / valid_pages_in_block) + (pages_need_PPA % valid_pages_in_block == 0 ? 0 : 1);
+								pages_need_PPA = 0;
+							}
 
 							if (block_no_with_x_valid_page <= remaining_blocks_to_consume) {
 								remaining_blocks_to_consume -= block_no_with_x_valid_page;
@@ -735,21 +715,20 @@ namespace SSD_Components
 								remaining_blocks_to_consume = 0;
 							}
 
-                            for (unsigned int block_cntr = 0; block_cntr < block_no_with_x_valid_page; block_cntr++) {
+							for (unsigned int block_cntr = 0; block_cntr < block_no_with_x_valid_page; block_cntr++) {
 								//Assign physical addresses
 								std::vector<NVM::FlashMemory::Physical_Page_Address> addresses;
-                                unsigned int remaining_lpas_in_plane = (unsigned int)assigned_lpas[plane_address.ChannelID][plane_address.ChipID][plane_address.DieID][plane_address.PlaneID].size();
-                                if (remaining_lpas_in_plane < eff_valid) {
-                                    eff_valid = remaining_lpas_in_plane;
+								if (assigned_lpas[plane_address.ChannelID][plane_address.ChipID][plane_address.DieID][plane_address.PlaneID].size() < valid_pages_in_block) {
+									valid_pages_in_block = int(assigned_lpas[plane_address.ChannelID][plane_address.ChipID][plane_address.DieID][plane_address.PlaneID].size());
 								}
-                                for (unsigned int page_cntr = 0; page_cntr < eff_valid; page_cntr++) {
+								for (int page_cntr = 0; page_cntr < valid_pages_in_block; page_cntr++) {
 									NVM::FlashMemory::Physical_Page_Address addr(plane_address.ChannelID, plane_address.ChipID, plane_address.DieID, plane_address.PlaneID, 0, 0);
 									addresses.push_back(addr);
 								}
 								block_manager->Allocate_Pages_in_block_and_invalidate_remaining_for_preconditioning(stream_id, plane_address, addresses);
 
 								//Update mapping table
-                                for (auto const &address : addresses) {
+								for (auto const &address : addresses) {
 									LPA_type lpa = assigned_lpas[plane_address.ChannelID][plane_address.ChipID][plane_address.DieID][plane_address.PlaneID].back();
 									assigned_lpas[plane_address.ChannelID][plane_address.ChipID][plane_address.DieID][plane_address.PlaneID].pop_back();
 									PPA_type ppa = Convert_address_to_ppa(address);
@@ -761,26 +740,7 @@ namespace SSD_Components
 							}
 						}
 						if (assigned_lpas[plane_address.ChannelID][plane_address.ChipID][plane_address.DieID][plane_address.PlaneID].size() > 0) {
-							// Fallback: allocate additional blocks ignoring distribution until LPAs are exhausted
-							while (assigned_lpas[plane_address.ChannelID][plane_address.ChipID][plane_address.DieID][plane_address.PlaneID].size() > 0) {
-								std::vector<NVM::FlashMemory::Physical_Page_Address> addresses;
-								unsigned int remaining = (unsigned int)assigned_lpas[plane_address.ChannelID][plane_address.ChipID][plane_address.DieID][plane_address.PlaneID].size();
-								unsigned int eff_valid = std::min(allowed_pages_per_block, remaining);
-								for (unsigned int page_cntr = 0; page_cntr < eff_valid; page_cntr++) {
-									NVM::FlashMemory::Physical_Page_Address addr(plane_address.ChannelID, plane_address.ChipID, plane_address.DieID, plane_address.PlaneID, 0, 0);
-									addresses.push_back(addr);
-								}
-								block_manager->Allocate_Pages_in_block_and_invalidate_remaining_for_preconditioning(stream_id, plane_address, addresses);
-								for (auto const &address : addresses) {
-									LPA_type lpa = assigned_lpas[plane_address.ChannelID][plane_address.ChipID][plane_address.DieID][plane_address.PlaneID].back();
-									assigned_lpas[plane_address.ChannelID][plane_address.ChipID][plane_address.DieID][plane_address.PlaneID].pop_back();
-									PPA_type ppa = Convert_address_to_ppa(address);
-									flash_controller->Change_memory_status_preconditioning(&address, &lpa);
-									domains[stream_id]->GlobalMappingTable[lpa].PPA = ppa;
-									domains[stream_id]->GlobalMappingTable[lpa].WrittenStateBitmap = (*lpa_list.find(lpa)).second;
-									domains[stream_id]->GlobalMappingTable[lpa].TimeStamp = 0;
-								}
-							}
+							PRINT_ERROR("It is not possible to assign PPA to all LPAs in Allocate_address_for_preconditioning! It is not safe to continue preconditioning." << assigned_lpas[plane_address.ChannelID][plane_address.ChipID][plane_address.DieID][plane_address.PlaneID].size())
 						}
 					}
 				}
@@ -1034,15 +994,7 @@ namespace SSD_Components
 		LPA_type lpn = transaction->LPA;
 		NVM::FlashMemory::Physical_Page_Address& targetAddress = transaction->Address;
         AddressMappingDomain* domain = domains[transaction->Stream_id];
-        // periodic reset of 1-second window counters (skip during ongoing GC to avoid perturbation)
-        {
-            bool any_gc_ongoing = false;
-            SSD_Components::PlaneBookKeepingType* pbke_chk = block_manager->Get_plane_bookkeeping_entry(transaction->Address);
-            if (!pbke_chk->Ongoing_erase_operations.empty()) any_gc_ongoing = true;
-            if (!any_gc_ongoing) {
-                LpaWriteCounter_TryPeriodicReset(CurrentTimeStamp);
-            }
-        }
+        // 주기 리셋은 plane 주소 설정 이후로 미룸 (초기화 전 Address 접근 금지)
 
 		switch (domain->PlaneAllocationScheme) {
 			case Flash_Plane_Allocation_Scheme_Type::CWDP:
@@ -1195,6 +1147,132 @@ namespace SSD_Components
 			default:
 				PRINT_ERROR("Unknown plane allocation scheme type!")
 		}
+
+        // 이제 plane 주소가 설정되었으므로 안전하게 주기 리셋 수행 (GC 중이면 건너뜀)
+        {
+            bool any_gc_ongoing = false;
+            SSD_Components::PlaneBookKeepingType* pbke_chk = block_manager->Get_plane_bookkeeping_entry(transaction->Address);
+            if (!pbke_chk->Ongoing_erase_operations.empty()) any_gc_ongoing = true;
+            if (!any_gc_ongoing) {
+                bool reset_occurred = LpaWriteCounter_TryPeriodicReset(CurrentTimeStamp);
+                
+                // Time slice 리셋이 발생했을 때 Block Pool의 Hot/Cold ratio 분석
+                if (reset_occurred && HotLpaList::GetHotLpaCount() > 0) {
+                    unsigned int hot_pool_hot_pages = 0, hot_pool_cold_pages = 0, hot_pool_total_pages = 0;
+                    unsigned int warm_pool_hot_pages = 0, warm_pool_cold_pages = 0, warm_pool_total_pages = 0;
+                    unsigned int cold_pool_hot_pages = 0, cold_pool_cold_pages = 0, cold_pool_total_pages = 0;
+                    
+                    // 모든 plane의 모든 블록을 순회하면서 block->Temperature로 분류
+                    for (unsigned int ch = 0; ch < channel_count; ch++) {
+                        for (unsigned int chip = 0; chip < chip_no_per_channel; chip++) {
+                            for (unsigned int die = 0; die < die_no_per_chip; die++) {
+                                for (unsigned int plane = 0; plane < plane_no_per_die; plane++) {
+                                    SSD_Components::PlaneBookKeepingType* pbke = &(block_manager->plane_manager[ch][chip][die][plane]);
+                                    
+                                    // 모든 블록 순회
+                                    for (unsigned int b = 0; b < block_manager->block_no_per_plane; b++) {
+                                        SSD_Components::Block_Pool_Slot_Type* block = &(pbke->Blocks[b]);
+                                        
+                                        // 블록의 Temperature에 따라 분류
+                                        if (block->Temperature == SSD_Components::BlockTemperature::HOT) {
+                                            // Hot 블록의 모든 valid page 분석
+                                            for (flash_page_ID_type pageID = 0; pageID < block_manager->pages_no_per_block; pageID++) {
+                                                if (block_manager->Is_page_valid(block, pageID)) {
+                                                    hot_pool_total_pages++;
+                                                    NVM::FlashMemory::Physical_Page_Address page_addr;
+                                                    page_addr.ChannelID = ch;
+                                                    page_addr.ChipID = chip;
+                                                    page_addr.DieID = die;
+                                                    page_addr.PlaneID = plane;
+                                                    page_addr.BlockID = block->BlockID;
+                                                    page_addr.PageID = pageID;
+                                                    PPA_type ppa = Convert_address_to_ppa(page_addr);
+                                                    
+                                                    // 모든 stream에 대해 LPA 확인 시도
+                                                    for (unsigned int stream_id = 0; stream_id < no_of_input_streams; stream_id++) {
+                                                        LPA_type lpa = Get_lpa_from_ppa(stream_id, ppa);
+                                                        if (lpa != NO_LPA) {
+                                                            if (HotLpaList::IsHot(lpa)) {
+                                                                hot_pool_hot_pages++;
+                                                            } else {
+                                                                hot_pool_cold_pages++;
+                                                            }
+                                                            break; // 한 stream에서 찾으면 종료
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        } else if (block->Temperature == SSD_Components::BlockTemperature::WARM) {
+                                            // Warm 블록의 모든 valid page 분석
+                                            for (flash_page_ID_type pageID = 0; pageID < block_manager->pages_no_per_block; pageID++) {
+                                                if (block_manager->Is_page_valid(block, pageID)) {
+                                                    warm_pool_total_pages++;
+                                                    NVM::FlashMemory::Physical_Page_Address page_addr;
+                                                    page_addr.ChannelID = ch;
+                                                    page_addr.ChipID = chip;
+                                                    page_addr.DieID = die;
+                                                    page_addr.PlaneID = plane;
+                                                    page_addr.BlockID = block->BlockID;
+                                                    page_addr.PageID = pageID;
+                                                    PPA_type ppa = Convert_address_to_ppa(page_addr);
+                                                    
+                                                    // 모든 stream에 대해 LPA 확인 시도
+                                                    for (unsigned int stream_id = 0; stream_id < no_of_input_streams; stream_id++) {
+                                                        LPA_type lpa = Get_lpa_from_ppa(stream_id, ppa);
+                                                        if (lpa != NO_LPA) {
+                                                            if (HotLpaList::IsHot(lpa)) {
+                                                                warm_pool_hot_pages++;
+                                                            } else {
+                                                                warm_pool_cold_pages++;
+                                                            }
+                                                            break; // 한 stream에서 찾으면 종료
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        } else if (block->Temperature == SSD_Components::BlockTemperature::COLD) {
+                                            // Cold 블록의 모든 valid page 분석
+                                            for (flash_page_ID_type pageID = 0; pageID < block_manager->pages_no_per_block; pageID++) {
+                                                if (block_manager->Is_page_valid(block, pageID)) {
+                                                    cold_pool_total_pages++;
+                                                    NVM::FlashMemory::Physical_Page_Address page_addr;
+                                                    page_addr.ChannelID = ch;
+                                                    page_addr.ChipID = chip;
+                                                    page_addr.DieID = die;
+                                                    page_addr.PlaneID = plane;
+                                                    page_addr.BlockID = block->BlockID;
+                                                    page_addr.PageID = pageID;
+                                                    PPA_type ppa = Convert_address_to_ppa(page_addr);
+                                                    
+                                                    // 모든 stream에 대해 LPA 확인 시도
+                                                    for (unsigned int stream_id = 0; stream_id < no_of_input_streams; stream_id++) {
+                                                        LPA_type lpa = Get_lpa_from_ppa(stream_id, ppa);
+                                                        if (lpa != NO_LPA) {
+                                                            if (HotLpaList::IsHot(lpa)) {
+                                                                cold_pool_hot_pages++;
+                                                            } else {
+                                                                cold_pool_cold_pages++;
+                                                            }
+                                                            break; // 한 stream에서 찾으면 종료
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 로그 기록
+                    Stats::Record_BlockPool_HotCold_Ratio(CurrentTimeStamp / SIM_TIME_TO_MICROSECONDS_COEFF,
+                        hot_pool_hot_pages, hot_pool_cold_pages, hot_pool_total_pages,
+                        warm_pool_hot_pages, warm_pool_cold_pages, warm_pool_total_pages,
+                        cold_pool_hot_pages, cold_pool_cold_pages, cold_pool_total_pages);
+                }
+            }
+        }
 	}
 
 	void Address_Mapping_Unit_Page_Level::allocate_page_in_plane_for_user_write(NVM_Transaction_Flash_WR* transaction, bool is_for_gc)
@@ -1209,9 +1287,30 @@ namespace SSD_Components
 			}
 			// Prefer WARM blocks for first writes
 			{
-				SSD_Components::PlaneBookKeepingType* pbke = block_manager->Get_plane_bookkeeping_entry(transaction->Address);
-				SSD_Components::Block_Pool_Slot_Type* wf = pbke->Data_wf[transaction->Stream_id];
-				if (wf->Temperature != SSD_Components::BlockTemperature::WARM) {
+			SSD_Components::PlaneBookKeepingType* pbke = block_manager->Get_plane_bookkeeping_entry(transaction->Address);
+			SSD_Components::Block_Pool_Slot_Type* wf = pbke->Data_wf[transaction->Stream_id];
+			if (wf->Temperature != SSD_Components::BlockTemperature::WARM) {
+				// 해당 온도의 오픈 풀에 반환 (허용된 페이지가 남아있는 경우만)
+				if (wf->Current_page_write_index < block_manager->pages_no_per_block && 
+					block_manager->Has_allowed_pages_remaining(wf)) {
+					switch (wf->Temperature) {
+					case SSD_Components::BlockTemperature::HOT:
+						pbke->Open_hot_pool[transaction->Stream_id].push_back(wf);
+						break;
+					case SSD_Components::BlockTemperature::WARM:
+						pbke->Open_warm_pool[transaction->Stream_id].push_back(wf);
+						break;
+					case SSD_Components::BlockTemperature::COLD:
+						pbke->Open_cold_pool[transaction->Stream_id].push_back(wf);
+						break;
+					}
+				} else if (wf->Current_page_write_index < block_manager->pages_no_per_block) {
+					// 허용된 페이지가 없지만 아직 블록이 끝나지 않은 경우: 사실상 끝난 블록으로 처리
+					// Current_page_write_index를 pages_no_per_block으로 설정하여 mark_block_consumed가 작동하도록 함
+					//wf->Current_page_write_index = block_manager->pages_no_per_block;
+					SSD_Components::mark_block_consumed(pbke, wf, block_manager->pages_no_per_block);
+					block_manager->Check_gc_required_for_plane(transaction->Address);
+				}
 					// 1) try from per-stream Open_warm_pool first
 					if (!pbke->Open_warm_pool[transaction->Stream_id].empty()) {
 						SSD_Components::Block_Pool_Slot_Type* warm_block = pbke->Open_warm_pool[transaction->Stream_id].back();
@@ -1222,17 +1321,9 @@ namespace SSD_Components
 						pbke->Data_wf[transaction->Stream_id] = warm_block;
 					} else {
 						// 2) fallback: search a WARM block in free pool
-						for (auto it = pbke->Free_block_pool.begin(); it != pbke->Free_block_pool.end(); ++it) {
-							if (it->second->Temperature == SSD_Components::BlockTemperature::WARM) {
-								SSD_Components::Block_Pool_Slot_Type* warm_block = it->second;
-								pbke->Free_block_pool.erase(it);
-								warm_block->Stream_id = transaction->Stream_id;
-								warm_block->Holds_mapping_data = false;
-								pbke->Block_usage_history.push(warm_block->BlockID);
-								pbke->Data_wf[transaction->Stream_id] = warm_block;
-								break;
-							}
-						}
+						SSD_Components::Block_Pool_Slot_Type* warm_block = pbke->Get_a_free_block(transaction->Stream_id, false);
+						warm_block->Temperature = SSD_Components::BlockTemperature::WARM;
+						pbke->Data_wf[transaction->Stream_id] = warm_block;
 					}
 				}
 			}
@@ -1264,146 +1355,86 @@ namespace SSD_Components
 					transaction->RelatedRead = update_read_tr;
 				}
 			}
-            // Now consider switching to HOT/COLD frontier based on dynamic thresholds
-            {
-                SSD_Components::PlaneBookKeepingType* pbke = block_manager->Get_plane_bookkeeping_entry(transaction->Address);
-                SSD_Components::Block_Pool_Slot_Type* wf = pbke->Data_wf[transaction->Stream_id];
-                // 1) HOT 승격: 현재 wf가 HOT이 아니고, LPA가 HOT이면 HOT으로 전환 시도
-                if (wf->Temperature != SSD_Components::BlockTemperature::HOT) {
-                    if (LpaWriteCounter_IsHot_ByPrevWindow(transaction->LPA)) {
-                        bool switched = false;
-                        // First try: take from per-stream HOT open pool
-                        if (!pbke->Open_hot_pool[transaction->Stream_id].empty()) {
-                            auto* hot_block = pbke->Open_hot_pool[transaction->Stream_id].back();
-                            pbke->Open_hot_pool[transaction->Stream_id].pop_back();
-                            hot_block->Stream_id = transaction->Stream_id;
-                            hot_block->Holds_mapping_data = false;
-                            pbke->Block_usage_history.push(hot_block->BlockID);
-                            pbke->Data_wf[transaction->Stream_id] = hot_block;
-                            switched = true;
-                        }
-                        // Fallback: find a HOT block from free pool
-                        if (!switched) {
-                            for (auto it = pbke->Free_block_pool.begin(); it != pbke->Free_block_pool.end(); ++it) {
-                                if (it->second->Temperature == SSD_Components::BlockTemperature::HOT) {
-                                    SSD_Components::Block_Pool_Slot_Type* hot_block = it->second;
-                                    pbke->Free_block_pool.erase(it);
-                                    hot_block->Stream_id = transaction->Stream_id;
-                                    hot_block->Holds_mapping_data = false;
-                                    pbke->Block_usage_history.push(hot_block->BlockID);
-                                    pbke->Data_wf[transaction->Stream_id] = hot_block;
-                                    switched = true;
-                                    // Report HOT/WARM/COLD block counts at the moment of HOT switch
-                                // {
-                                //     unsigned int hot_cnt = 0, warm_cnt = 0, cold_cnt = 0;
-                                //     for (unsigned int b = 0; b < block_manager->block_no_per_plane; b++) {
-                                //         switch (pbke->Blocks[b].Temperature) {
-                                //         case SSD_Components::BlockTemperature::HOT: hot_cnt++; break;
-                                //         case SSD_Components::BlockTemperature::WARM: warm_cnt++; break;
-                                //         case SSD_Components::BlockTemperature::COLD: cold_cnt++; break;
-                                //         }
-                                //     }
-                                //     PRINT_MESSAGE("[HOT switch] Plane @" << transaction->Address.ChannelID << "@" << transaction->Address.ChipID << "@" << transaction->Address.DieID << "@" << transaction->Address.PlaneID
-                                //         << " | HOT=" << hot_cnt << " WARM=" << warm_cnt << " COLD=" << cold_cnt)
-                                // }
-                                // break;
-                                }
-                            }
-                        }
-                        // If no HOT block, pick best WARM (max invalid pages), convert to HOT, and use it
-                        if (!switched) {
-                            SSD_Components::Block_Pool_Slot_Type* best_warm = NULL;
-                            unsigned int best_invalid = 0;
-                            auto best_it = pbke->Free_block_pool.end();
-                            for (auto it = pbke->Free_block_pool.begin(); it != pbke->Free_block_pool.end(); ++it) {
-                                SSD_Components::Block_Pool_Slot_Type* blk = it->second;
-                                if (blk->Temperature == SSD_Components::BlockTemperature::WARM) {
-                                    if (blk->Invalid_page_count >= best_invalid) {
-                                        best_invalid = blk->Invalid_page_count;
-                                        best_warm = blk;
-                                        best_it = it;
-                                    }
-                                }
-                            }
-                            if (best_warm != NULL) {
-                                pbke->Free_block_pool.erase(best_it);
-                                best_warm->Temperature = SSD_Components::BlockTemperature::HOT;
-                                best_warm->Stream_id = transaction->Stream_id;
-                                best_warm->Holds_mapping_data = false;
-                                pbke->Block_usage_history.push(best_warm->BlockID);
-                                pbke->Data_wf[transaction->Stream_id] = best_warm;
-                                // Report HOT/WARM/COLD block counts at the moment of HOT switch
-                                // {
-                                //     unsigned int hot_cnt = 0, warm_cnt = 0, cold_cnt = 0;
-                                //     for (unsigned int b = 0; b < block_manager->block_no_per_plane; b++) {
-                                //         switch (pbke->Blocks[b].Temperature) {
-                                //         case SSD_Components::BlockTemperature::HOT: hot_cnt++; break;
-                                //         case SSD_Components::BlockTemperature::WARM: warm_cnt++; break;
-                                //         case SSD_Components::BlockTemperature::COLD: cold_cnt++; break;
-                                //         }
-                                //     }
-                                //     PRINT_MESSAGE("[HOT switch] Plane @" << transaction->Address.ChannelID << "@" << transaction->Address.ChipID << "@" << transaction->Address.DieID << "@" << transaction->Address.PlaneID
-                                //         << " | HOT=" << hot_cnt << " WARM=" << warm_cnt << " COLD=" << cold_cnt)
-                                // }
-                            }
-                        }
+            // Now consider switching to HOT/COLD frontier based on ideal model (hot_lpa.txt)
+            // Determine Target Temperature based on LPA Hotness
+            SSD_Components::BlockTemperature target_temp = SSD_Components::BlockTemperature::WARM;
+			 // sim_time_type current_time = Simulator->Time();
+            // bool is_hot = LpaWriteCounter_IsHot_ByTimeInterval(transaction->LPA, current_time);
+            // bool is_cold = LpaWriteCounter_IsCold_ByTimeInterval(transaction->LPA, current_time);
+            // LpaWriteCounter_OnWrite_WithTime(transaction->LPA, current_time);
+
+            // my mechansim for here
+            // bool is_hot = LpaWriteCounter_IsHot_ByPrevWindow(transaction->LPA);
+            // bool is_cold = LpaWriteCounter_IsCold_ByPrevWindow(transaction->LPA);
+            
+            // Ideal model: Use HotLpaList from hot_lpa.txt file
+            bool is_hot = false;
+            bool is_cold = false;
+            
+            if (SSD_Components::HotLpaList::GetHotLpaCount() > 0) {
+                // If hot_lpa.txt is loaded, use it for ideal classification
+                is_hot = SSD_Components::HotLpaList::IsHot(transaction->LPA);
+                is_cold = !is_hot;  // If not hot, then it's cold
+            } else {
+                // If hot_lpa.txt is not loaded, default to WARM
+                is_hot = false;
+                is_cold = false;
+            }
+            
+            if (is_hot) {
+                target_temp = SSD_Components::BlockTemperature::HOT;
+            } else if (is_cold) {
+                target_temp = SSD_Components::BlockTemperature::COLD;
+            }
+
+            // Check current Write Frontier
+            SSD_Components::PlaneBookKeepingType* pbke = block_manager->Get_plane_bookkeeping_entry(transaction->Address);
+            SSD_Components::Block_Pool_Slot_Type* wf = pbke->Data_wf[transaction->Stream_id];
+
+            if (wf->Temperature != target_temp) {
+                // 1. Return current block to Open Pool
+                if (wf->Current_page_write_index < block_manager->pages_no_per_block && 
+                    block_manager->Has_allowed_pages_remaining(wf)) {
+                    switch (wf->Temperature) {
+                    case SSD_Components::BlockTemperature::HOT:
+                        pbke->Open_hot_pool[transaction->Stream_id].push_back(wf);
+                        break;
+                    case SSD_Components::BlockTemperature::WARM:
+                        pbke->Open_warm_pool[transaction->Stream_id].push_back(wf);
+                        break;
+                    case SSD_Components::BlockTemperature::COLD:
+                        pbke->Open_cold_pool[transaction->Stream_id].push_back(wf);
+                        break;
                     }
+                } else if (wf->Current_page_write_index < block_manager->pages_no_per_block) {
+                    SSD_Components::mark_block_consumed(pbke, wf, block_manager->pages_no_per_block);
+                    block_manager->Check_gc_required_for_plane(transaction->Address);
                 }
-                // 2) COLD 강등: 현재 wf가 COLD가 아니고, LPA가 COLD이면 COLD으로 전환 시도
-                wf = pbke->Data_wf[transaction->Stream_id];
-                if (wf->Temperature != SSD_Components::BlockTemperature::COLD) {
-                    if (LpaWriteCounter_IsCold_ByPrevWindow(transaction->LPA)) {
-                        bool switched_cold = false;
-                        // First: per-stream COLD open pool
-                        if (!pbke->Open_cold_pool[transaction->Stream_id].empty()) {
-                            auto* cold_block = pbke->Open_cold_pool[transaction->Stream_id].back();
-                            pbke->Open_cold_pool[transaction->Stream_id].pop_back();
-                            cold_block->Stream_id = transaction->Stream_id;
-                            cold_block->Holds_mapping_data = false;
-                            pbke->Block_usage_history.push(cold_block->BlockID);
-                            pbke->Data_wf[transaction->Stream_id] = cold_block;
-                            switched_cold = true;
-                        }
-                        // Next: free pool에서 COLD 블록
-                        if (!switched_cold) {
-                            for (auto it = pbke->Free_block_pool.begin(); it != pbke->Free_block_pool.end(); ++it) {
-                                if (it->second->Temperature == SSD_Components::BlockTemperature::COLD) {
-                                    SSD_Components::Block_Pool_Slot_Type* cold_block = it->second;
-                                    pbke->Free_block_pool.erase(it);
-                                    cold_block->Stream_id = transaction->Stream_id;
-                                    cold_block->Holds_mapping_data = false;
-                                    pbke->Block_usage_history.push(cold_block->BlockID);
-                                    pbke->Data_wf[transaction->Stream_id] = cold_block;
-                                    switched_cold = true;
-                                    break;
-                                }
-                            }
-                        }
-                        // 마지막: WARM을 COLD로 변경해 사용(필요시 MSB 허용은 FTL 할당 경로에서 처리)
-                        if (!switched_cold) {
-                            SSD_Components::Block_Pool_Slot_Type* chosen = NULL;
-                            auto chosen_it = pbke->Free_block_pool.end();
-                            unsigned int min_invalid = UINT32_MAX;
-                            for (auto it = pbke->Free_block_pool.begin(); it != pbke->Free_block_pool.end(); ++it) {
-                                SSD_Components::Block_Pool_Slot_Type* blk = it->second;
-                                if (blk->Temperature == SSD_Components::BlockTemperature::WARM) {
-                                    if (blk->Invalid_page_count <= min_invalid) {
-                                        min_invalid = blk->Invalid_page_count;
-                                        chosen = blk;
-                                        chosen_it = it;
-                                    }
-                                }
-                            }
-                            if (chosen != NULL) {
-                                pbke->Free_block_pool.erase(chosen_it);
-                                chosen->Temperature = SSD_Components::BlockTemperature::COLD;
-                                chosen->Stream_id = transaction->Stream_id;
-                                chosen->Holds_mapping_data = false;
-                                pbke->Block_usage_history.push(chosen->BlockID);
-                                pbke->Data_wf[transaction->Stream_id] = chosen;
-                            }
-                        }
-                    }
+
+                // 2. Allocate new block from Open Pool or Free Pool
+                bool switched = false;
+                std::deque<SSD_Components::Block_Pool_Slot_Type*>* target_pool = NULL;
+                switch (target_temp) {
+                    case SSD_Components::BlockTemperature::HOT: target_pool = &pbke->Open_hot_pool[transaction->Stream_id]; break;
+                    case SSD_Components::BlockTemperature::WARM: target_pool = &pbke->Open_warm_pool[transaction->Stream_id]; break;
+                    case SSD_Components::BlockTemperature::COLD: target_pool = &pbke->Open_cold_pool[transaction->Stream_id]; break;
+                }
+
+                if (target_pool && !target_pool->empty()) {
+                    SSD_Components::Block_Pool_Slot_Type* new_block = target_pool->back();
+                    target_pool->pop_back();
+                    new_block->Stream_id = transaction->Stream_id;
+                    new_block->Holds_mapping_data = false;
+                    pbke->Block_usage_history.push(new_block->BlockID);
+                    pbke->Data_wf[transaction->Stream_id] = new_block;
+                    switched = true;
+                }
+
+                // Try Free Pool
+                if (!switched) {
+                    SSD_Components::Block_Pool_Slot_Type* new_block = pbke->Get_a_free_block(transaction->Stream_id, false);
+                    new_block->Temperature = target_temp;
+                    pbke->Data_wf[transaction->Stream_id] = new_block;
                 }
             }
 		}
@@ -1417,95 +1448,42 @@ namespace SSD_Components
             // - If source block is WARM, move valid pages to COLD blocks
             SSD_Components::PlaneBookKeepingType* pbke_gc = block_manager->Get_plane_bookkeeping_entry(transaction->Address);
             SSD_Components::Block_Pool_Slot_Type* src_blk = &pbke_gc->Blocks[transaction->Address.BlockID];
+
             SSD_Components::BlockTemperature target_temp = src_blk->Temperature;
             if (src_blk->Temperature == SSD_Components::BlockTemperature::HOT) {
                 target_temp = SSD_Components::BlockTemperature::WARM;
             } else if (src_blk->Temperature == SSD_Components::BlockTemperature::WARM) {
                 target_temp = SSD_Components::BlockTemperature::COLD;
+            } else {
+                // Victim is COLD -> Move to COLD block
+                target_temp = SSD_Components::BlockTemperature::COLD;
             }
-            // Ensure GC write frontier matches target_temp
-            SSD_Components::Block_Pool_Slot_Type* gc_wf = pbke_gc->GC_wf[transaction->Stream_id];
-            if (gc_wf->Temperature != target_temp) {
-                bool found = false;
-                for (auto it = pbke_gc->Free_block_pool.begin(); it != pbke_gc->Free_block_pool.end(); ++it) {
-                    if (it->second->Temperature == target_temp) {
-                        SSD_Components::Block_Pool_Slot_Type* tgt = it->second;
-                        pbke_gc->Free_block_pool.erase(it);
-                        tgt->Stream_id = transaction->Stream_id;
-                        tgt->Holds_mapping_data = false;
-                        pbke_gc->Block_usage_history.push(tgt->BlockID);
-                        pbke_gc->GC_wf[transaction->Stream_id] = tgt;
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
-                    // Fallback:
-                    // If target is COLD and there is no COLD block, demote a WARM block with MIN invalid pages
-                    if (target_temp == SSD_Components::BlockTemperature::COLD) {
-                        SSD_Components::Block_Pool_Slot_Type* chosen = NULL;
-                        auto chosen_it = pbke_gc->Free_block_pool.end();
-                        unsigned int min_invalid = UINT32_MAX;
-                        for (auto it = pbke_gc->Free_block_pool.begin(); it != pbke_gc->Free_block_pool.end(); ++it) {
-                            SSD_Components::Block_Pool_Slot_Type* blk = it->second;
-                            if (blk->Temperature == SSD_Components::BlockTemperature::WARM) {
-                                if (blk->Invalid_page_count <= min_invalid) {
-                                    min_invalid = blk->Invalid_page_count;
-                                    chosen = blk;
-                                    chosen_it = it;
-                                }
-                            }
-                        }
-                        if (chosen != NULL) {
-                            pbke_gc->Free_block_pool.erase(chosen_it);
-                            // Before switching to COLD, enable all MSB pages (past and future) in the block
-                            if (target_temp == SSD_Components::BlockTemperature::COLD) {
-                                unsigned int add_free = 0;
-                                // Past MSB pages (0 .. Current_page_write_index-1): if they were previously invalidated due to HOT/WARM restriction, reclaim them as free
-                                for (unsigned int pid = 0; pid < chosen->Current_page_write_index; pid++) {
-                                    bool is_msb = false;
-                                    if (Flash_Parameter_Set::Flash_Technology == Flash_Technology_Type::MLC) {
-                                        is_msb = ((pid % 2) == 1);
-                                    } else if (Flash_Parameter_Set::Flash_Technology == Flash_Technology_Type::TLC) {
-                                        int lt = 0;
-                                        if (pid <= 5) lt = 0; else if (pid <= 7) lt = 1; else lt = (((int)pid - 8) >> 1) % 3;
-                                        is_msb = (lt == 2);
-                                    }
-                                    if (is_msb) {
-                                        // If page is marked invalid (i.e., previously skipped), reclaim it as free
-                                        if (!block_manager->Is_page_valid(chosen, pid)) {
-                                            // Clear invalid bit to mark as valid-free (unprogrammed)
-                                            chosen->Invalid_page_bitmap[pid / 64] &= ~(((uint64_t)1) << (pid % 64));
-                                            // Increase plane free pages
-                                            add_free++;
-                                        }
-                                    }
-                                }
-                                // Future MSB pages (Current_page_write_index .. end)
-                                for (unsigned int pid = chosen->Current_page_write_index; pid < pages_no_per_block; pid++) {
-                                    bool is_msb = false;
-                                    if (Flash_Parameter_Set::Flash_Technology == Flash_Technology_Type::MLC) {
-                                        is_msb = ((pid % 2) == 1);
-                                    } else if (Flash_Parameter_Set::Flash_Technology == Flash_Technology_Type::TLC) {
-                                        int lt = 0;
-                                        if (pid <= 5) lt = 0; else if (pid <= 7) lt = 1; else lt = (((int)pid - 8) >> 1) % 3;
-                                        is_msb = (lt == 2);
-                                    }
-                                    if (is_msb) add_free++;
-                                }
-                                pbke_gc->Total_pages_count += add_free;
-                                pbke_gc->Free_pages_count += add_free;
-                                // Rewind write index to earliest freed MSB hole to keep sequential allocation
-                                // chosen->Current_page_write_index = 0;
-                            }
-                            chosen->Temperature = target_temp;
-                            chosen->Stream_id = transaction->Stream_id;
-                            chosen->Holds_mapping_data = false;
-                            pbke_gc->Block_usage_history.push(chosen->BlockID);
-                            pbke_gc->GC_wf[transaction->Stream_id] = chosen;
-                        }
-                    }
-                }
+			// Ensure GC write frontier matches target_temp
+			SSD_Components::Block_Pool_Slot_Type* gc_wf = pbke_gc->GC_wf[transaction->Stream_id];
+			if (gc_wf->Temperature != target_temp) {
+				// 부분 채워진 상태이고 허용된 페이지가 남아있는 경우만 해당 온도의 오픈 풀에 반환
+				if (gc_wf->Current_page_write_index < block_manager->pages_no_per_block && 
+					block_manager->Has_allowed_pages_remaining(gc_wf)) {
+					switch (gc_wf->Temperature) {
+					case SSD_Components::BlockTemperature::HOT:
+						pbke_gc->Open_hot_pool[transaction->Stream_id].push_back(gc_wf);
+						break;
+					case SSD_Components::BlockTemperature::WARM:
+						pbke_gc->Open_warm_pool[transaction->Stream_id].push_back(gc_wf);
+						break;
+					case SSD_Components::BlockTemperature::COLD:
+						pbke_gc->Open_cold_pool[transaction->Stream_id].push_back(gc_wf);
+						break;
+					}
+				} else if (gc_wf->Current_page_write_index < block_manager->pages_no_per_block) {
+					// 허용된 페이지가 없지만 아직 블록이 끝나지 않은 경우: 사실상 끝난 블록으로 처리
+					//gc_wf->Current_page_write_index = block_manager->pages_no_per_block;
+					SSD_Components::mark_block_consumed(pbke_gc, gc_wf, block_manager->pages_no_per_block);
+					block_manager->Check_gc_required_for_plane(transaction->Address);
+				}
+				SSD_Components::Block_Pool_Slot_Type* tgt = pbke_gc->Get_a_free_block(transaction->Stream_id, false);
+				tgt->Temperature = target_temp;
+				pbke_gc->GC_wf[transaction->Stream_id] = tgt;
             }
             block_manager->Allocate_block_and_page_in_plane_for_gc_write(transaction->Stream_id, transaction->Address);
         } else {
@@ -1537,6 +1515,15 @@ namespace SSD_Components
 			block_manager->Invalidate_page_in_block(transaction->Stream_id, prevAddr);
 		}
 
+		SSD_Components::PlaneBookKeepingType* pbke = block_manager->Get_plane_bookkeeping_entry(transaction->Address);
+		SSD_Components::Block_Pool_Slot_Type* tr_wf = pbke->Translation_wf[transaction->Stream_id];
+		if (tr_wf->Temperature != SSD_Components::BlockTemperature::COLD) {
+			if (tr_wf->Current_page_write_index < block_manager->pages_no_per_block && !block_manager->Has_allowed_pages_remaining(tr_wf)) {
+				SSD_Components::mark_block_consumed(pbke, tr_wf, block_manager->pages_no_per_block);
+				block_manager->Check_gc_required_for_plane(transaction->Address);
+			} 
+		}
+
 		block_manager->Allocate_block_and_page_in_plane_for_translation_write(transaction->Stream_id, transaction->Address, false);
 		transaction->PPA = Convert_address_to_ppa(transaction->Address);
 		domain->GlobalTranslationDirectory[mvpn].MPPN = (MPPN_type)transaction->PPA;
@@ -1562,7 +1549,7 @@ namespace SSD_Components
 				break;
 			case Flash_Plane_Allocation_Scheme_Type::CDWP:
 				read_address.ChannelID = domain->Channel_ids[(unsigned int)(lpa % domain->Channel_no)];
-				read_address.ChipID = domain->Chip_ids[(unsigned int)((lpa / (domain->Channel_no * domain->Die_no)) % domain->Chip_no)];
+				read_address.ChipID = domain->Chip_ids[(unsigned int)((lpa / (domain->Die_no * domain->Channel_no)) % domain->Chip_no)];
 				read_address.DieID = domain->Die_ids[(unsigned int)((lpa / domain->Channel_no) % domain->Die_no)];
 				read_address.PlaneID = domain->Plane_ids[(unsigned int)((lpa / (domain->Channel_no * domain->Die_no * domain->Chip_no)) % domain->Plane_no)];
 				break;
@@ -1721,6 +1708,21 @@ namespace SSD_Components
 	{
 		mppa = domains[stream_id]->GlobalTranslationDirectory[mvpn].MPPN;
 		timestamp = domains[stream_id]->GlobalTranslationDirectory[mvpn].TimeStamp;
+	}
+
+	LPA_type Address_Mapping_Unit_Page_Level::Get_lpa_from_ppa(stream_id_type stream_id, PPA_type ppa)
+	{
+		// GlobalMappingTable을 순회하여 해당 PPA와 일치하는 LPA 찾기
+		AddressMappingDomain* domain = domains[stream_id];
+		LPA_type total_logical_pages = domain->Total_logical_pages_no;
+		
+		for (LPA_type lpa = 0; lpa < total_logical_pages; lpa++) {
+			if (domain->GlobalMappingTable[lpa].PPA == ppa) {
+				return lpa;
+			}
+		}
+		
+		return NO_LPA; // 찾지 못한 경우
 	}
 
 	inline MVPN_type Address_Mapping_Unit_Page_Level::get_MVPN(const LPA_type lpn, stream_id_type stream_id)
@@ -2091,35 +2093,61 @@ namespace SSD_Components
 		//The LPAs are actually not known until they are read one-by-one from flash storage. But, to reduce MQSim's complexity, we assume that LPAs are stored in DRAM and thus no read from flash storage is needed.
 		Block_Pool_Slot_Type* block = &(block_manager->plane_manager[block_address.ChannelID][block_address.ChipID][block_address.DieID][block_address.PlaneID].Blocks[block_address.BlockID]);
 		NVM::FlashMemory::Physical_Page_Address addr(block_address);
-		for (flash_page_ID_type pageID = 0; pageID < block->Current_page_write_index; pageID++) {
-			if (block_manager->Is_page_valid(block, pageID)) {
+        flash_page_ID_type upper = block->Current_page_write_index < pages_no_per_block ? block->Current_page_write_index : pages_no_per_block;
+        for (flash_page_ID_type pageID = 0; pageID < upper; pageID++) {
+            if (pageID >= pages_no_per_block) {
+                PRINT_ERROR("Set_barrier: pageID exceeds pages_no_per_block!")
+            }
+            if (block_manager->Is_page_valid(block, pageID)) {
+				// 잠금 대상은 GC에서 실제로 고려하는 페이지와 동일하게 정합화
+				if (!block_manager->Should_consider_page_for_gc(block, pageID)) {
+					continue;
+				}
 				addr.PageID = pageID;
 				if (block->Holds_mapping_data) {
 					MVPN_type mpvn = (MVPN_type)flash_controller->Get_metadata(addr.ChannelID, addr.ChipID, addr.DieID, addr.PlaneID, addr.BlockID, addr.PageID);
-					if (domains[block->Stream_id]->GlobalTranslationDirectory[mpvn].MPPN != Convert_address_to_ppa(addr)) {
-						PRINT_ERROR("Inconsistency in the global translation directory when locking an MPVN!")
-						Set_barrier_for_accessing_mvpn(block->Stream_id, mpvn);
-					}
+                    if (domains[block->Stream_id]->GlobalTranslationDirectory[mpvn].MPPN != Convert_address_to_ppa(addr)) {
+                        PRINT_MESSAGE("[INC] t=" << Simulator->Time()
+                            << ", type=MPVN, stream=" << (unsigned)block->Stream_id
+                            << ", mpvn=" << (unsigned long long)mpvn
+                            << ", pageAddr=@" << (unsigned)addr.ChannelID << ":" << (unsigned)addr.ChipID << ":" << (unsigned)addr.DieID
+                            << ":" << (unsigned)addr.PlaneID << ":" << (unsigned)addr.BlockID << ":" << (unsigned)addr.PageID
+                            << ", dir.mppn=" << domains[block->Stream_id]->GlobalTranslationDirectory[mpvn].MPPN
+                            << ", addr.ppa=" << Convert_address_to_ppa(addr))
+                        PRINT_ERROR("Inconsistency in the global translation directory when locking an MPVN!")
+                    }
+					Set_barrier_for_accessing_mvpn(block->Stream_id, mpvn);
 				} else {
 					LPA_type lpa = flash_controller->Get_metadata(addr.ChannelID, addr.ChipID, addr.DieID, addr.PlaneID, addr.BlockID, addr.PageID);
+					if (lpa == NO_LPA) {
+						continue;
+					}
 					LPA_type ppa = domains[block->Stream_id]->GlobalMappingTable[lpa].PPA;
 					if (domains[block->Stream_id]->CMT->Exists(block->Stream_id, lpa)) {
 						ppa = domains[block->Stream_id]->CMT->Retrieve_ppa(block->Stream_id, lpa);
 					}
-					if (ppa != Convert_address_to_ppa(addr)) {
-						PRINT_ERROR("Inconsistency in the global mapping table when locking an LPA!")
-					}
+                    if (ppa != Convert_address_to_ppa(addr)) {
+                        PRINT_MESSAGE("[INC] t=" << Simulator->Time()
+                            << ", type=LPA, stream=" << (unsigned)block->Stream_id
+                            << ", lpa=" << (unsigned long long)lpa
+                            << ", pageAddr=@" << (unsigned)addr.ChannelID << ":" << (unsigned)addr.ChipID << ":" << (unsigned)addr.DieID
+                            << ":" << (unsigned)addr.PlaneID << ":" << (unsigned)addr.BlockID << ":" << (unsigned)addr.PageID
+                            << ", gmt.ppa=" << ppa
+                            << ", addr.ppa=" << Convert_address_to_ppa(addr))
+                        PRINT_ERROR("Inconsistency in the global mapping table when locking an LPA!")
+                    }
 					Set_barrier_for_accessing_lpa(block->Stream_id, lpa);
 				}
 			}
 		}
 	}
 
-	inline void Address_Mapping_Unit_Page_Level::Remove_barrier_for_accessing_lpa(stream_id_type stream_id, LPA_type lpa)
+    inline void Address_Mapping_Unit_Page_Level::Remove_barrier_for_accessing_lpa(stream_id_type stream_id, LPA_type lpa)
 	{
 		auto itr = domains[stream_id]->Locked_LPAs.find(lpa);
 		if (itr == domains[stream_id]->Locked_LPAs.end()) {
-			PRINT_ERROR("Illegal operation: Unlocking an LPA that has not been locked!");
+            DEBUG(Simulator->Time() << ": LPA=" << (unsigned long long)lpa << " unlock skipped (not locked)");
+            return;
 		}
 		domains[stream_id]->Locked_LPAs.erase(itr);
 
@@ -2142,11 +2170,12 @@ namespace SSD_Components
 		}
 	}
 
-	inline void Address_Mapping_Unit_Page_Level::Remove_barrier_for_accessing_mvpn(stream_id_type stream_id, MVPN_type mvpn)
+    inline void Address_Mapping_Unit_Page_Level::Remove_barrier_for_accessing_mvpn(stream_id_type stream_id, MVPN_type mvpn)
 	{
 		auto itr = domains[stream_id]->Locked_MVPNs.find(mvpn);
 		if (itr == domains[stream_id]->Locked_MVPNs.end()) {
-			PRINT_ERROR("Illegal operation: Unlocking an MVPN that has not been locked!");
+            DEBUG(Simulator->Time() << ": MVPN=" << (unsigned long long)mvpn << " unlock skipped (not locked)");
+            return;
 		}
 		domains[stream_id]->Locked_MVPNs.erase(itr);
 

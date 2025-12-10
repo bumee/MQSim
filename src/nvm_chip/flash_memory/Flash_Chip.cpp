@@ -158,7 +158,7 @@ namespace NVM
 						targetDie->Planes[command->Address[planeCntr].PlaneID]->Read_count++;
 						targetDie->Planes[command->Address[planeCntr].PlaneID]->Blocks[command->Address[planeCntr].BlockID]->Pages[command->Address[planeCntr].PageID].Read_metadata(command->Meta_data[planeCntr]);
 						// Record OOB access timestamp for read
-						targetDie->Planes[command->Address[planeCntr].PlaneID]->Blocks[command->Address[planeCntr].BlockID]->Pages[command->Address[planeCntr].PageID].Record_access(Simulator->Time());
+						//targetDie->Planes[command->Address[planeCntr].PlaneID]->Blocks[command->Address[planeCntr].BlockID]->Pages[command->Address[planeCntr].PageID].Record_access(Simulator->Time());
 					}
 					break;
                 case CMD_PROGRAM_PAGE:
@@ -179,11 +179,11 @@ namespace NVM
                             // From Yaakobi et al., ICNC 2012
                             lt = (pid <= 5) ? 0 : ((pid <= 7) ? 1 : (((pid - 8) >> 1) % 3));
                         }
-                        if (lt == 0) SSD_Components::Stats::Program_LSB_Count++;
-                        else if (lt == 1) SSD_Components::Stats::Program_CSB_Count++;
-                        else if (lt == 2) SSD_Components::Stats::Program_MSB_Count++;
+                        // if (lt == 0) SSD_Components::Stats::Program_LSB_Count++;
+                        // else if (lt == 1) SSD_Components::Stats::Program_CSB_Count++;
+                        // else if (lt == 2) SSD_Components::Stats::Program_MSB_Count++;
 						// Record OOB access timestamp for program
-						targetDie->Planes[command->Address[planeCntr].PlaneID]->Blocks[command->Address[planeCntr].BlockID]->Pages[command->Address[planeCntr].PageID].Record_access(Simulator->Time());
+						//targetDie->Planes[command->Address[planeCntr].PlaneID]->Blocks[command->Address[planeCntr].BlockID]->Pages[command->Address[planeCntr].PageID].Record_access(Simulator->Time());
 					}
 					break;
 				case CMD_ERASE_BLOCK:
